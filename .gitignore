@@ -1,0 +1,10 @@
+.DS_Store
+*.swp
+.idea/
+
+.env
+.env.*
+!.env.example
+
+postgres-data/
+data/
