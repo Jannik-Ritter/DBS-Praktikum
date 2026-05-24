@@ -6,12 +6,15 @@ DROP TABLE IF EXISTS "Kaufposition" CASCADE;
 DROP TABLE IF EXISTS "Kauf" CASCADE;
 DROP TABLE IF EXISTS "Kunde" CASCADE;
 DROP TABLE IF EXISTS "Angebot" CASCADE;
+DROP TABLE IF EXISTS "Konditionen" CASCADE;
 DROP TABLE IF EXISTS "Filiale" CASCADE;
 DROP TABLE IF EXISTS "Beteiligte Künstler" CASCADE;
 DROP TABLE IF EXISTS "Beteiligte Personen" CASCADE;
 DROP TABLE IF EXISTS "Buchautoren" CASCADE;
 DROP TABLE IF EXISTS "Ähnliche Produkte" CASCADE;
+DROP TABLE IF EXISTS "Produktähnlichkeit" CASCADE;
 DROP TABLE IF EXISTS "ProduktKategorie" CASCADE;
+DROP TABLE IF EXISTS "Produktkategorien" CASCADE;
 DROP TABLE IF EXISTS "Kategorie" CASCADE;
 DROP TABLE IF EXISTS "Lied" CASCADE;
 DROP TABLE IF EXISTS "Musik-CD" CASCADE;
@@ -108,28 +111,28 @@ CREATE TABLE "Lied" (
 CREATE TABLE "Kategorie" (
     "KategorieID" INTEGER NOT NULL PRIMARY KEY,
     "Name" VARCHAR(255) NOT NULL,
-    "ParentKategorieID" INTEGER NULL,
-    CONSTRAINT "kategorie_parent_not_self_check" CHECK (
-        "ParentKategorieID" IS NULL
-        OR "ParentKategorieID" <> "KategorieID"
+    "OberkategorieID" INTEGER NULL,
+    CONSTRAINT "kategorie_oberkategorie_not_self_check" CHECK (
+        "OberkategorieID" IS NULL
+        OR "OberkategorieID" <> "KategorieID"
     ),
-    CONSTRAINT "kategorie_parent_fk" FOREIGN KEY ("ParentKategorieID") REFERENCES "Kategorie" ("KategorieID") DEFERRABLE INITIALLY DEFERRED
+    CONSTRAINT "kategorie_oberkategorie_fk" FOREIGN KEY ("OberkategorieID") REFERENCES "Kategorie" ("KategorieID") DEFERRABLE INITIALLY DEFERRED
 );
-CREATE TABLE "ProduktKategorie" (
+CREATE TABLE "Produktkategorien" (
     "Produktnummer" INTEGER NOT NULL,
     "KategorieID" INTEGER NOT NULL,
     PRIMARY KEY ("Produktnummer", "KategorieID"),
-    CONSTRAINT "produktkategorie_kategorie_fk" FOREIGN KEY ("KategorieID") REFERENCES "Kategorie" ("KategorieID"),
-    CONSTRAINT "produktkategorie_produkt_fk" FOREIGN KEY ("Produktnummer") REFERENCES "Produkt" ("Produktnummer")
+    CONSTRAINT "produktkategorien_kategorie_fk" FOREIGN KEY ("KategorieID") REFERENCES "Kategorie" ("KategorieID"),
+    CONSTRAINT "produktkategorien_produkt_fk" FOREIGN KEY ("Produktnummer") REFERENCES "Produkt" ("Produktnummer")
 );
 -- Beziehungen
-CREATE TABLE "Ähnliche Produkte" (
+CREATE TABLE "Produktähnlichkeit" (
     "Produktnummer1" INTEGER NOT NULL,
     "Produktnummer2" INTEGER NOT NULL,
     PRIMARY KEY ("Produktnummer1", "Produktnummer2"),
-    CONSTRAINT "aehnliche_produkte_order_check" CHECK ("Produktnummer1" < "Produktnummer2"),
-    CONSTRAINT "aehnliche_produkte_p1_fk" FOREIGN KEY ("Produktnummer1") REFERENCES "Produkt" ("Produktnummer"),
-    CONSTRAINT "aehnliche_produkte_p2_fk" FOREIGN KEY ("Produktnummer2") REFERENCES "Produkt" ("Produktnummer")
+    CONSTRAINT "produktaehnlichkeit_order_check" CHECK ("Produktnummer1" < "Produktnummer2"),
+    CONSTRAINT "produktaehnlichkeit_p1_fk" FOREIGN KEY ("Produktnummer1") REFERENCES "Produkt" ("Produktnummer"),
+    CONSTRAINT "produktaehnlichkeit_p2_fk" FOREIGN KEY ("Produktnummer2") REFERENCES "Produkt" ("Produktnummer")
 );
 CREATE TABLE "Buchautoren" (
     "BuchID" INTEGER NOT NULL,
@@ -161,18 +164,18 @@ CREATE TABLE "Filiale" (
     "Anschrift" VARCHAR(255) NOT NULL,
     "Ort" VARCHAR(255) NOT NULL
 );
-CREATE TABLE "Angebot" (
+CREATE TABLE "Konditionen" (
     "FilialeID" INTEGER NOT NULL,
     "Produktnummer" INTEGER NOT NULL,
     "Zustand" VARCHAR(255) NOT NULL,
     "Preis" NUMERIC(10, 2) NULL,
     PRIMARY KEY ("FilialeID", "Produktnummer", "Zustand"),
-    CONSTRAINT "angebot_preis_check" CHECK (
+    CONSTRAINT "konditionen_preis_check" CHECK (
         "Preis" IS NULL
         OR "Preis" >= 0
     ),
-    CONSTRAINT "angebot_filiale_fk" FOREIGN KEY ("FilialeID") REFERENCES "Filiale" ("FilialeID"),
-    CONSTRAINT "angebot_produkt_fk" FOREIGN KEY ("Produktnummer") REFERENCES "Produkt" ("Produktnummer")
+    CONSTRAINT "konditionen_filiale_fk" FOREIGN KEY ("FilialeID") REFERENCES "Filiale" ("FilialeID"),
+    CONSTRAINT "konditionen_produkt_fk" FOREIGN KEY ("Produktnummer") REFERENCES "Produkt" ("Produktnummer")
 );
 -- Verkauf und Rezensionen
 CREATE TABLE "Kunde" (
@@ -199,7 +202,7 @@ CREATE TABLE "Kaufposition" (
     PRIMARY KEY ("KaufID", "PositionID"),
     CONSTRAINT "kaufposition_kaufpreis_check" CHECK ("Kaufpreis" >= 0),
     CONSTRAINT "kaufposition_kauf_fk" FOREIGN KEY ("KaufID") REFERENCES "Kauf" ("KaufID"),
-    CONSTRAINT "kaufposition_angebot_fk" FOREIGN KEY ("FilialeID", "Produktnummer", "Zustand") REFERENCES "Angebot" ("FilialeID", "Produktnummer", "Zustand")
+    CONSTRAINT "kaufposition_konditionen_fk" FOREIGN KEY ("FilialeID", "Produktnummer", "Zustand") REFERENCES "Konditionen" ("FilialeID", "Produktnummer", "Zustand")
 );
 CREATE TABLE "Kundenrezension" (
     "RezensionID" INTEGER NOT NULL PRIMARY KEY,
@@ -223,8 +226,8 @@ GROUP BY p."Produktnummer";
 CREATE VIEW "ÄhnlicheProdukteBidirektional" AS
 SELECT "Produktnummer1" AS "Produktnummer",
     "Produktnummer2" AS "ÄhnlicheProduktnummer"
-FROM "Ähnliche Produkte"
+FROM "Produktähnlichkeit"
 UNION
 SELECT "Produktnummer2" AS "Produktnummer",
     "Produktnummer1" AS "ÄhnlicheProduktnummer"
-FROM "Ähnliche Produkte";
+FROM "Produktähnlichkeit";
