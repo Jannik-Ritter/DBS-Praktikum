@@ -68,9 +68,12 @@ CREATE TABLE "Künstler" (
 CREATE TABLE "Produkt" (
     "Produktnummer" INTEGER NOT NULL PRIMARY KEY,
     "Titel" VARCHAR(255) NOT NULL,
+    -- Könnte man noch unique machen, aber das wäre evtl. zu streng
     "Verkaufsrang" INTEGER NOT NULL,
-    "Bild" JSON NULL,
-    CONSTRAINT "produkt_verkaufsrang_unique" UNIQUE ("Verkaufsrang")
+    "Bild" BYTEA NULL,
+    -- Jedes Produkt muss von einem bestimmten Typ sein. Evtl zu streng?
+    "Produkttyp" VARCHAR(20) NOT NULL,
+    CONSTRAINT "produkt_typ_check" CHECK ("Produkttyp" IN ('Buch', 'Musik-CD', 'DVD'))
 );
 CREATE TABLE "Buch" (
     "Produktnummer" INTEGER NOT NULL PRIMARY KEY,
@@ -83,6 +86,20 @@ CREATE TABLE "Buch" (
     CONSTRAINT "buch_produktnummer_fk" FOREIGN KEY ("Produktnummer") REFERENCES "Produkt" ("Produktnummer"),
     CONSTRAINT "buch_verlagid_fk" FOREIGN KEY ("VerlagID") REFERENCES "Verlag" ("VerlagID")
 );
+CREATE TABLE "Musik-CD" (
+    "Produktnummer" INTEGER NOT NULL PRIMARY KEY,
+    "LabelID" INTEGER NOT NULL,
+    "Erscheinungsdatum" DATE NOT NULL,
+    CONSTRAINT "musik_cd_produktnummer_fk" FOREIGN KEY ("Produktnummer") REFERENCES "Produkt" ("Produktnummer"),
+    CONSTRAINT "musik_cd_labelid_fk" FOREIGN KEY ("LabelID") REFERENCES "Label" ("LabelID")
+);
+CREATE TABLE "Lied" (
+    "LiedID" INTEGER NOT NULL PRIMARY KEY,
+    "Produktnummer" INTEGER NOT NULL,
+    "Name" VARCHAR(255) NOT NULL,
+    CONSTRAINT "lied_produktnummer_name_unique" UNIQUE ("Produktnummer", "Name"),
+    CONSTRAINT "lied_produktnummer_fk" FOREIGN KEY ("Produktnummer") REFERENCES "Musik-CD" ("Produktnummer")
+);
 CREATE TABLE "DVD" (
     "Produktnummer" INTEGER NOT NULL PRIMARY KEY,
     "Format" VARCHAR(255) NOT NULL,
@@ -92,30 +109,17 @@ CREATE TABLE "DVD" (
     CONSTRAINT "dvd_region_code_check" CHECK ("Region Code" >= 0),
     CONSTRAINT "dvd_produktnummer_fk" FOREIGN KEY ("Produktnummer") REFERENCES "Produkt" ("Produktnummer")
 );
-CREATE TABLE "Musik-CD" (
-    "Produktnummer" INTEGER NOT NULL PRIMARY KEY,
-    "LabelID" INTEGER NOT NULL,
-    "Erscheinungsdatum" DATE NOT NULL,
-    CONSTRAINT "musik_cd_produktnummer_fk" FOREIGN KEY ("Produktnummer") REFERENCES "Produkt" ("Produktnummer"),
-    CONSTRAINT "musik_cd_labelid_fk" FOREIGN KEY ("LabelID") REFERENCES "Label" ("LabelID")
-);
--- Produktdetails
-CREATE TABLE "Lied" (
-    "LiedID" INTEGER NOT NULL PRIMARY KEY,
-    "Produktnummer" INTEGER NOT NULL,
-    "Name" VARCHAR(255) NOT NULL,
-    CONSTRAINT "lied_produktnummer_name_unique" UNIQUE ("Produktnummer", "Name"),
-    CONSTRAINT "lied_produktnummer_fk" FOREIGN KEY ("Produktnummer") REFERENCES "Musik-CD" ("Produktnummer")
-);
 -- Kategorien
 CREATE TABLE "Kategorie" (
     "KategorieID" INTEGER NOT NULL PRIMARY KEY,
     "Name" VARCHAR(255) NOT NULL,
     "OberkategorieID" INTEGER NULL,
+    -- Oberkategorie kann nicht sich selbst referenzieren
     CONSTRAINT "kategorie_oberkategorie_not_self_check" CHECK (
         "OberkategorieID" IS NULL
         OR "OberkategorieID" <> "KategorieID"
     ),
+    -- Überprüfen der Fremdschlüsselbedingung bis zum Commit aufschieben, damit Eltern und Kindreferenzen in beliebiger Reihenfolge innerhalb einer Transaktion eingefügt werden können
     CONSTRAINT "kategorie_oberkategorie_fk" FOREIGN KEY ("OberkategorieID") REFERENCES "Kategorie" ("KategorieID") DEFERRABLE INITIALLY DEFERRED
 );
 CREATE TABLE "Produktkategorien" (
@@ -126,14 +130,6 @@ CREATE TABLE "Produktkategorien" (
     CONSTRAINT "produktkategorien_produkt_fk" FOREIGN KEY ("Produktnummer") REFERENCES "Produkt" ("Produktnummer")
 );
 -- Beziehungen
-CREATE TABLE "Produktähnlichkeit" (
-    "Produktnummer1" INTEGER NOT NULL,
-    "Produktnummer2" INTEGER NOT NULL,
-    PRIMARY KEY ("Produktnummer1", "Produktnummer2"),
-    CONSTRAINT "produktaehnlichkeit_order_check" CHECK ("Produktnummer1" < "Produktnummer2"),
-    CONSTRAINT "produktaehnlichkeit_p1_fk" FOREIGN KEY ("Produktnummer1") REFERENCES "Produkt" ("Produktnummer"),
-    CONSTRAINT "produktaehnlichkeit_p2_fk" FOREIGN KEY ("Produktnummer2") REFERENCES "Produkt" ("Produktnummer")
-);
 CREATE TABLE "Buchautoren" (
     "BuchID" INTEGER NOT NULL,
     "AutorID" INTEGER NOT NULL,
@@ -156,6 +152,14 @@ CREATE TABLE "Beteiligte Künstler" (
     PRIMARY KEY ("Produktnummer", "KünstlerID"),
     CONSTRAINT "beteiligte_kuenstler_kuenstler_fk" FOREIGN KEY ("KünstlerID") REFERENCES "Künstler" ("PersonID"),
     CONSTRAINT "beteiligte_kuenstler_produkt_fk" FOREIGN KEY ("Produktnummer") REFERENCES "Musik-CD" ("Produktnummer")
+);
+CREATE TABLE "Produktähnlichkeit" (
+    "Produktnummer1" INTEGER NOT NULL,
+    "Produktnummer2" INTEGER NOT NULL,
+    PRIMARY KEY ("Produktnummer1", "Produktnummer2"),
+    CONSTRAINT "produktaehnlichkeit_order_check" CHECK ("Produktnummer1" < "Produktnummer2"),
+    CONSTRAINT "produktaehnlichkeit_p1_fk" FOREIGN KEY ("Produktnummer1") REFERENCES "Produkt" ("Produktnummer"),
+    CONSTRAINT "produktaehnlichkeit_p2_fk" FOREIGN KEY ("Produktnummer2") REFERENCES "Produkt" ("Produktnummer")
 );
 -- Einzelhandel
 CREATE TABLE "Filiale" (
@@ -213,13 +217,15 @@ CREATE TABLE "Kundenrezension" (
     CONSTRAINT "kundenrezension_punkte_check" CHECK (
         "Punkte" BETWEEN 1 AND 5
     ),
+    -- Jeder Kunde kann nur eine Rezension für ein Produkt abgeben
+    CONSTRAINT "kundenrezension_kunde_produkt_unique" UNIQUE ("KundeID", "Produktnummer"),
     CONSTRAINT "kundenrezension_kunde_fk" FOREIGN KEY ("KundeID") REFERENCES "Kunde" ("KundeID"),
     CONSTRAINT "kundenrezension_produkt_fk" FOREIGN KEY ("Produktnummer") REFERENCES "Produkt" ("Produktnummer")
 );
 -- Views
 CREATE VIEW "ProduktDurchschnittsRating" AS
 SELECT p."Produktnummer",
-    AVG(k."Punkte"::FLOAT) AS "DurchschnittsRating"
+    AVG(k."Punkte") AS "DurchschnittsRating"
 FROM "Produkt" p
     LEFT JOIN "Kundenrezension" k ON k."Produktnummer" = p."Produktnummer"
 GROUP BY p."Produktnummer";
