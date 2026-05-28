@@ -9,3 +9,5 @@
 postgres-data/
 data/
 testate/
+build/
+target/

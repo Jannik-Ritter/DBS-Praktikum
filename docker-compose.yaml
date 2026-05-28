@@ -7,9 +7,35 @@ services:
       POSTGRES_PASSWORD: test
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   adminer:
     image: adminer
     restart: always
     ports:
       - 8080:8080
+
+  loader:
+    image: maven:3.9.9-eclipse-temurin-21
+    profiles: ["tools"]
+    working_dir: /workspace
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/postgres
+      DB_USER: postgres
+      DB_PASSWORD: test
+    volumes:
+      - .:/workspace
+      - maven-cache:/root/.m2
+    command: >
+      mvn -q -DskipTests exec:java
+      -Dexec.args="--schema src/dbs-schema.sql --data-dir data --rejects build/rejected-records.csv"
+
+volumes:
+  maven-cache:

@@ -1,0 +1,65 @@
+package de.dbspraktikum.loader.app;
+
+import de.dbspraktikum.loader.config.LoaderConfig;
+import de.dbspraktikum.loader.db.Database;
+import de.dbspraktikum.loader.db.ErrorRepository;
+import de.dbspraktikum.loader.error.ErrorLog;
+import de.dbspraktikum.loader.importer.CategoryXmlImporter;
+import de.dbspraktikum.loader.importer.ReviewCsvImporter;
+import de.dbspraktikum.loader.importer.ShopXmlImporter;
+
+import java.sql.SQLException;
+import java.util.Map;
+
+public final class LoaderApp {
+    private final LoaderConfig config;
+
+    public LoaderApp(LoaderConfig config) {
+        this.config = config;
+    }
+
+    public void run() throws Exception {
+        try (Database database = Database.connect(config)) {
+            if (config.schema() != null) {
+                database.executeSchema(config.schema());
+            }
+
+            try (ErrorLog errors = new ErrorLog(config.rejects(), new ErrorRepository(database.connection()))) {
+                ImportContext context = new ImportContext(database, errors);
+                runImport(context);
+                database.commit();
+                printSummary(database, errors);
+            } catch (Exception ex) {
+                database.rollback();
+                throw ex;
+            }
+        }
+    }
+
+    private void runImport(ImportContext context) throws Exception {
+        context.products().loadExistingProducts();
+
+        ShopXmlImporter shopImporter = new ShopXmlImporter(context);
+        shopImporter.importFile(config.dataDir().resolve("dresden.xml"));
+        shopImporter.importFile(config.dataDir().resolve("leipzig_transformed.xml"));
+        context.products().insertSimilarRefs(context.similarRefs(), context.errors());
+
+        new CategoryXmlImporter(context).importFile(config.dataDir().resolve("categories.xml"));
+        new ReviewCsvImporter(context).importFile(config.dataDir().resolve("reviews.csv"));
+        context.database().refreshAllRatings();
+    }
+
+    private static void printSummary(Database database, ErrorLog errors) throws SQLException {
+        System.out.println("Import abgeschlossen.");
+        System.out.printf("Produkte: %d%n", database.countProducts());
+        System.out.printf("Rezensionen: %d%n", database.countReviews());
+        System.out.printf("Kategorien: %d%n", database.countCategories());
+        System.out.printf("Ladefehler: %d%n", database.countLoadErrors());
+        if (!errors.counts().isEmpty()) {
+            System.out.println("Fehler nach Art:");
+            errors.counts().entrySet().stream()
+                    .sorted(Map.Entry.comparingByKey())
+                    .forEach(entry -> System.out.printf("- %s: %d%n", entry.getKey(), entry.getValue()));
+        }
+    }
+}
