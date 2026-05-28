@@ -58,6 +58,7 @@ public final class ReviewCsvImporter extends Importer {
         String summary = TextUtil.clean(row.value("summary"));
         String content = TextUtil.firstNonBlank(row.value("content"), summary, "");
 
+        // Anonyme Gäste werden über den Quellbezeichner pro Zeile eindeutig gemacht
         String customerName = "guest".equalsIgnoreCase(user) ? user + "@" + source : user;
         int customerId = context.references().customerId(customerName);
         context.reviews().insertReview(customerId, asin, date, helpful, summary, content, rating, user, source, context.errors());

@@ -40,6 +40,10 @@ public final class Errors {
 
     public static final String CATEGORY_NAME_MISSING = "Kategoriename fehlt";
     public static final String REQUIRED_FIELD_MISSING = "Pflichtfeld fehlt";
+    public static final String BOOK_AUTHOR_MISSING = "Buch hat keinen Autor";
+    public static final String MUSIC_ARTIST_MISSING = "Musik-CD hat keinen Kuenstler";
+    public static final String MUSIC_TRACK_MISSING = "Musik-CD hat keine Lieder";
+    public static final String PRODUCT_CATEGORY_MISSING = "Produkt ist keiner Kategorie zugeordnet";
 
     public static String productTypeMismatch(String existingType) {
         return "Produkt wurde bereits mit anderem Typ geladen: " + existingType;

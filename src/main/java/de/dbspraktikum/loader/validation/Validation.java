@@ -9,7 +9,7 @@ public final class Validation {
     private static final Pattern ASIN_PATTERN = Pattern.compile("[A-Z0-9]{10}");
     private static final Pattern EAN13_PATTERN = Pattern.compile("[0-9]{13}");
     private static final Pattern ISBN10_PATTERN = Pattern.compile("[0-9]{9}[0-9X]");
-    private static final Pattern CURRENCY_PATTERN = Pattern.compile("[A-Z]{3}");
+    private static final Pattern CURRENCY_PATTERN = Pattern.compile("[A-Z]{3}"); // Gehen einfach mal davon aus, dass alle validen Currencies einfach 3 Großbuchstaben sind
 
     private Validation() {
     }
@@ -52,7 +52,7 @@ public final class Validation {
     }
 
     public static boolean validCurrencyCode(String value) {
-        return value != null && CURRENCY_PATTERN.matcher(value).matches() && "EUR".equals(value);
+        return value != null && CURRENCY_PATTERN.matcher(value).matches();
     }
 
     public static String mapProductType(String pgroup) {

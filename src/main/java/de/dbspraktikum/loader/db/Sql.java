@@ -123,6 +123,17 @@ public final class Sql {
             ON CONFLICT DO NOTHING
             """;
 
+    public static final String SELECT_PRODUCTS_WITHOUT_CATEGORY = """
+            SELECT p."Produktnummer"
+            FROM "Produkt" p
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM "Produktkategorien" pk
+                WHERE pk."Produktnummer" = p."Produktnummer"
+            )
+            ORDER BY p."Produktnummer"
+            """;
+
     public static final String INSERT_REVIEW = """
             INSERT INTO "Kundenrezension" ("KundeID", "Produktnummer", "Rezensionsdatum", "Helpful", "Summary", "Text", "Punkte")
             VALUES (?, ?, ?, ?, ?, ?, ?)

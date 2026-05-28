@@ -37,6 +37,7 @@ public final class CategoryXmlImporter extends Importer {
             return;
         }
 
+        // Der hierarchische Pfad macht Kategorien trotz gleicher Namen eindeutig
         String path = parentPath == null ? name : parentPath + "/" + name;
         int categoryId = context.categories().categoryId(name, path, parentId);
 

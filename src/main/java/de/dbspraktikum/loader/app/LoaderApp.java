@@ -44,6 +44,7 @@ public final class LoaderApp {
         context.products().insertSimilarRefs(context.similarRefs(), context.errors());
 
         new CategoryXmlImporter(context).importFile(config.dataDir().resolve("categories.xml"));
+        context.categories().recordProductsWithoutCategory("categories.xml", context.errors());
         new ReviewCsvImporter(context).importFile(config.dataDir().resolve("reviews.csv"));
         context.database().refreshAllRatings();
     }

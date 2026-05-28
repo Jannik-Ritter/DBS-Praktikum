@@ -56,6 +56,7 @@ public final class ShopXmlImporter extends Importer {
 
         String existingType = context.products().typeOf(asin);
         if (existingType != null) {
+            // Bei einem bereits geladenen Produkt wird nur das Filialangebot ergänzt
             if (!existingType.equals(type)) {
                 context.errors().record("Produkt", "Produkttyp", type, source + ":" + asin, Errors.productTypeMismatch(existingType));
                 return;
@@ -71,6 +72,7 @@ public final class ShopXmlImporter extends Importer {
         }
 
         Integer salesRank = context.parser().positiveInt(item.getAttribute("salesrank"), "Produkt", "Verkaufsrang", source + ":" + asin);
+        // Werte stehen je nach Datei als Attribut am Item oder in Unterelementen
         String picture = TextUtil.firstNonBlank(item.getAttribute("picture"), XmlUtil.attr(XmlUtil.firstChild(item, "details"), "img"));
         String detailPage = TextUtil.firstNonBlank(item.getAttribute("detailpage"), XmlUtil.firstText(item, "details"));
         String ean = TextUtil.firstNonBlank(item.getAttribute("ean"), XmlUtil.firstText(item, "ean"));
@@ -91,6 +93,7 @@ public final class ShopXmlImporter extends Importer {
         }
 
         loadOffer(source, branchId, asin, item);
+        // Ähnliche Produkte werden gesammelt und erst nach allen Shop-Dateien gespeichert
         collectSimilarRefs(source, asin, item);
     }
 
@@ -98,6 +101,7 @@ public final class ShopXmlImporter extends Importer {
         Element spec = XmlUtil.firstChild(item, "bookspec");
         String rawIsbn = TextUtil.clean(XmlUtil.attr(XmlUtil.firstChild(spec, "isbn"), "val"));
         String isbn = rawIsbn;
+        // Fehlende oder ungültige ISBN wird durch die ASIN ersetzt
         if (rawIsbn == null) {
             context.errors().record("Buch", "ISBN-Nummer", null, source + ":" + asin, Errors.ISBN_MISSING);
             isbn = asin;
@@ -111,7 +115,15 @@ public final class ShopXmlImporter extends Importer {
 
         context.products().insertBook(asin, pages, publication, isbn, publisherId, source, context.errors());
 
-        for (String author : XmlUtil.valuesFromContainer(item, "authors", "author")) {
+        List<String> authors = XmlUtil.valuesFromContainer(item, "authors", "author");
+        if (authors.isEmpty()) {
+            // Manche Dateien liefern Autoren über creators statt authors
+            authors = XmlUtil.valuesFromContainer(item, "creators", "creator");
+        }
+        if (authors.isEmpty()) {
+            context.errors().record("Buchautoren", "Autor", asin, source + ":" + asin, Errors.BOOK_AUTHOR_MISSING);
+        }
+        for (String author : authors) {
             int personId = context.references().personId(author);
             context.references().insertRole(personId, "Autor");
             context.references().insertBookAuthor(asin, personId, author, source, context.errors());
@@ -127,12 +139,24 @@ public final class ShopXmlImporter extends Importer {
 
         context.products().insertMusicCd(asin, labelId, releaseDate, source, context.errors());
 
-        for (String artist : XmlUtil.valuesFromContainer(item, "artists", "artist")) {
+        List<String> artists = XmlUtil.valuesFromContainer(item, "artists", "artist");
+        if (artists.isEmpty()) {
+            // Manche Dateien liefern Künstler über creators statt artists
+            artists = XmlUtil.valuesFromContainer(item, "creators", "creator");
+        }
+        if (artists.isEmpty()) {
+            context.errors().record("Beteiligte Künstler", "Künstler", asin, source + ":" + asin, Errors.MUSIC_ARTIST_MISSING);
+        }
+        for (String artist : artists) {
             int personId = context.references().personId(artist);
             context.references().insertRole(personId, "Künstler");
             context.references().insertMusicArtist(asin, personId, artist, source, context.errors());
         }
-        for (String track : XmlUtil.valuesFromContainer(item, "tracks", "title")) {
+        List<String> tracks = XmlUtil.valuesFromContainer(item, "tracks", "title");
+        if (tracks.isEmpty()) {
+            context.errors().record("Lied", "Name", asin, source + ":" + asin, Errors.MUSIC_TRACK_MISSING);
+        }
+        for (String track : tracks) {
             String name = TextUtil.clean(track);
             if (name != null) {
                 context.products().insertTrack(asin, name, source, context.errors());
@@ -148,13 +172,16 @@ public final class ShopXmlImporter extends Importer {
         LocalDate releaseDate = context.parser().date(XmlUtil.firstText(spec, "releasedate"), "DVD", "Erscheinungsdatum", source + ":" + asin);
 
         context.products().insertDvd(asin, format, runtime, regionCode, releaseDate, source, context.errors());
-        insertPeopleByRole(source, item, "actors", "actor", "Actor", asin);
-        insertPeopleByRole(source, item, "creators", "creator", "Creator", asin);
-        insertPeopleByRole(source, item, "directors", "director", "Director", asin);
+        List<String> actors = XmlUtil.valuesFromContainer(item, "actors", "actor");
+        List<String> creators = XmlUtil.valuesFromContainer(item, "creators", "creator");
+        List<String> directors = XmlUtil.valuesFromContainer(item, "directors", "director");
+        insertPeopleByRole(source, actors, "Actor", asin);
+        insertPeopleByRole(source, creators, "Creator", asin);
+        insertPeopleByRole(source, directors, "Director", asin);
     }
 
-    private void insertPeopleByRole(String source, Element item, String container, String child, String role, String productNumber) throws SQLException {
-        for (String name : XmlUtil.valuesFromContainer(item, container, child)) {
+    private void insertPeopleByRole(String source, List<String> names, String role, String productNumber) throws SQLException {
+        for (String name : names) {
             int personId = context.references().personId(name);
             context.references().insertRole(personId, role);
             context.references().insertDvdParticipant(productNumber, personId, role, name, source, context.errors());
@@ -178,11 +205,13 @@ public final class ShopXmlImporter extends Importer {
     private void loadOffer(String source, int branchId, String asin, Element item) throws SQLException {
         Element price = XmlUtil.firstChild(item, "price");
         String state = TextUtil.firstNonBlank(XmlUtil.attr(price, "state"), XmlUtil.attr(item, "state"), "unknown");
+
         String currency = TextUtil.clean(XmlUtil.attr(price, "currency"));
         if (currency != null && !Validation.validCurrencyCode(currency)) {
             context.errors().record("Konditionen", "Währung", currency, source + ":" + asin, Errors.CURRENCY_INVALID_FORMAT);
             currency = null;
         }
+
         BigDecimal priceValue = context.parser().price(XmlUtil.text(price), XmlUtil.attr(price, "mult"), source + ":" + asin);
         context.offers().upsertOffer(branchId, asin, state, priceValue, currency);
     }
