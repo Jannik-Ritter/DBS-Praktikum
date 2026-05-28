@@ -1,4 +1,4 @@
-package de.dbspraktikum.loader.config;
+package de.dbspraktikum.loader.app;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,13 +30,11 @@ public record LoaderConfig(
         Map<String, String> parsed = parseArgs(args);
         Properties properties = loadProperties(parsed);
 
-        // Dateien laden
         Path dataDir = Path.of(value(parsed, properties, "--data-dir", "data.dir", DEFAULT_DATA_DIR));
         String schemaValue = value(parsed, properties, "--schema", "schema", DEFAULT_SCHEMA);
         Path schema = "none".equalsIgnoreCase(schemaValue) ? null : Path.of(schemaValue);
         Path rejects = Path.of(value(parsed, properties, "--rejects", "rejects", DEFAULT_REJECTS));
 
-        // Credentials laden
         String dbUrl = value(parsed, properties, "--db-url", "db.url", env("DB_URL", DEFAULT_DB_URL));
         String dbUser = value(parsed, properties, "--db-user", "db.user", env("DB_USER", DEFAULT_USER));
         String dbPassword = value(parsed, properties, "--db-password", "db.password", env("DB_PASSWORD", DEFAULT_PASSWORD));
@@ -79,7 +77,6 @@ public record LoaderConfig(
         return args.getOrDefault(argName, properties.getProperty(propertyName, defaultValue));
     }
 
-    // Environment Variablen laden (falls vorhanden)
     private static String env(String name, String defaultValue) {
         String value = System.getenv(name);
         return value == null || value.isBlank() ? defaultValue : value;

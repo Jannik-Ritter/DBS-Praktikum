@@ -1,7 +1,7 @@
 package de.dbspraktikum.loader;
 
 import de.dbspraktikum.loader.app.LoaderApp;
-import de.dbspraktikum.loader.config.LoaderConfig;
+import de.dbspraktikum.loader.app.LoaderConfig;
 
 public final class Main {
     private Main() {

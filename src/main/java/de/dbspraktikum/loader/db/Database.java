@@ -1,6 +1,6 @@
 package de.dbspraktikum.loader.db;
 
-import de.dbspraktikum.loader.config.LoaderConfig;
+import de.dbspraktikum.loader.app.LoaderConfig;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

@@ -4,10 +4,10 @@ public final class Sql {
     private Sql() {
     }
 
-    public static final String COUNT_PRODUCTS = "SELECT count(*) FROM \"Produkt\"";
-    public static final String COUNT_REVIEWS = "SELECT count(*) FROM \"Kundenrezension\"";
-    public static final String COUNT_CATEGORIES = "SELECT count(*) FROM \"Kategorie\"";
-    public static final String COUNT_LOAD_ERRORS = "SELECT count(*) FROM \"Ladefehler\"";
+    public static final String COUNT_PRODUCTS = countTable("Produkt");
+    public static final String COUNT_REVIEWS = countTable("Kundenrezension");
+    public static final String COUNT_CATEGORIES = countTable("Kategorie");
+    public static final String COUNT_LOAD_ERRORS = countTable("Ladefehler");
 
     public static final String REFRESH_ALL_RATINGS = """
             UPDATE "Produkt" p
@@ -81,63 +81,16 @@ public final class Sql {
             RETURNING "FilialeID"
             """;
 
-    public static final String UPSERT_PUBLISHER = """
-            INSERT INTO "Verlag" ("Verlagname")
-            VALUES (?)
-            ON CONFLICT ("Verlagname") DO UPDATE SET "Verlagname" = EXCLUDED."Verlagname"
-            RETURNING "VerlagID"
-            """;
+    public static final String UPSERT_PUBLISHER = upsertByName("Verlag", "Verlagname", "VerlagID");
+    public static final String UPSERT_LABEL = upsertByName("Label", "Labelname", "LabelID");
+    public static final String UPSERT_PERSON = upsertByName("Person", "Name", "PersonID");
+    public static final String UPSERT_CUSTOMER = upsertByName("Kunde", "Name", "KundeID");
 
-    public static final String UPSERT_LABEL = """
-            INSERT INTO "Label" ("Labelname")
-            VALUES (?)
-            ON CONFLICT ("Labelname") DO UPDATE SET "Labelname" = EXCLUDED."Labelname"
-            RETURNING "LabelID"
-            """;
-
-    public static final String UPSERT_PERSON = """
-            INSERT INTO "Person" ("Name")
-            VALUES (?)
-            ON CONFLICT ("Name") DO UPDATE SET "Name" = EXCLUDED."Name"
-            RETURNING "PersonID"
-            """;
-
-    public static final String UPSERT_CUSTOMER = """
-            INSERT INTO "Kunde" ("Name")
-            VALUES (?)
-            ON CONFLICT ("Name") DO UPDATE SET "Name" = EXCLUDED."Name"
-            RETURNING "KundeID"
-            """;
-
-    public static final String INSERT_ACTOR_ROLE = """
-            INSERT INTO "Actor" ("PersonID")
-            VALUES (?)
-            ON CONFLICT DO NOTHING
-            """;
-
-    public static final String INSERT_AUTHOR_ROLE = """
-            INSERT INTO "Autor" ("PersonID")
-            VALUES (?)
-            ON CONFLICT DO NOTHING
-            """;
-
-    public static final String INSERT_CREATOR_ROLE = """
-            INSERT INTO "Creator" ("PersonID")
-            VALUES (?)
-            ON CONFLICT DO NOTHING
-            """;
-
-    public static final String INSERT_DIRECTOR_ROLE = """
-            INSERT INTO "Director" ("PersonID")
-            VALUES (?)
-            ON CONFLICT DO NOTHING
-            """;
-
-    public static final String INSERT_ARTIST_ROLE = """
-            INSERT INTO "Künstler" ("PersonID")
-            VALUES (?)
-            ON CONFLICT DO NOTHING
-            """;
+    public static final String INSERT_ACTOR_ROLE = insertPersonRole("Actor");
+    public static final String INSERT_AUTHOR_ROLE = insertPersonRole("Autor");
+    public static final String INSERT_CREATOR_ROLE = insertPersonRole("Creator");
+    public static final String INSERT_DIRECTOR_ROLE = insertPersonRole("Director");
+    public static final String INSERT_ARTIST_ROLE = insertPersonRole("Künstler");
 
     public static final String INSERT_BOOK_AUTHOR = """
             INSERT INTO "Buchautoren" ("BuchID", "AutorID")
@@ -175,4 +128,25 @@ public final class Sql {
             VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT ("KundeID", "Produktnummer") DO NOTHING
             """;
+
+    private static String countTable(String table) {
+        return "SELECT count(*) FROM \"" + table + "\"";
+    }
+
+    private static String upsertByName(String table, String nameColumn, String idColumn) {
+        return """
+                INSERT INTO "%s" ("%s")
+                VALUES (?)
+                ON CONFLICT ("%s") DO UPDATE SET "%s" = EXCLUDED."%s"
+                RETURNING "%s"
+                """.formatted(table, nameColumn, nameColumn, nameColumn, nameColumn, idColumn);
+    }
+
+    private static String insertPersonRole(String roleTable) {
+        return """
+                INSERT INTO "%s" ("PersonID")
+                VALUES (?)
+                ON CONFLICT DO NOTHING
+                """.formatted(roleTable);
+    }
 }
