@@ -33,7 +33,7 @@ public final class ReviewCsvImporter extends Importer {
     private void loadReview(String source, CsvReader.Row row) throws SQLException {
         String asin = Validation.normalizeAsin(row.value("product"));
         if (!Validation.validAsin(asin)) {
-            context.errors().record("Kundenrezension", "Produktnummer", row.value("product"), source, Errors.INVALID_ASIN);
+            context.errors().record("Kundenrezension", "Produktnummer", row.value("product"), source, Errors.INVALID_PRODUCT_NUMBER);
             return;
         }
         if (!context.products().exists(asin)) {
@@ -58,7 +58,8 @@ public final class ReviewCsvImporter extends Importer {
         String summary = TextUtil.clean(row.value("summary"));
         String content = TextUtil.firstNonBlank(row.value("content"), summary, "");
 
-        int customerId = context.references().customerId(user);
+        String customerName = "guest".equalsIgnoreCase(user) ? user + "@" + source : user;
+        int customerId = context.references().customerId(customerName);
         context.reviews().insertReview(customerId, asin, date, helpful, summary, content, rating, user, source, context.errors());
     }
 }

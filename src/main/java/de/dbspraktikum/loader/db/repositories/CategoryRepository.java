@@ -1,6 +1,8 @@
 package de.dbspraktikum.loader.db.repositories;
 
 import de.dbspraktikum.loader.db.Sql;
+import de.dbspraktikum.loader.error.ErrorLog;
+import de.dbspraktikum.loader.error.Errors;
 import de.dbspraktikum.loader.parse.JdbcUtil;
 
 import java.sql.Connection;
@@ -38,11 +40,14 @@ public final class CategoryRepository {
         }
     }
 
-    public void insertProductCategory(String asin, int categoryId) throws SQLException {
+    public void insertProductCategory(String asin, int categoryId, String categoryPath, String source, ErrorLog errors) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_PRODUCT_CATEGORY)) {
             statement.setString(1, asin);
             statement.setInt(2, categoryId);
-            statement.executeUpdate();
+            int changed = statement.executeUpdate();
+            if (changed == 0) {
+                errors.record("Produktkategorien", "Produktnummer/Kategorie", asin + "/" + categoryPath, source, Errors.DUPLICATE_PRODUCT_CATEGORY);
+            }
         }
     }
 }

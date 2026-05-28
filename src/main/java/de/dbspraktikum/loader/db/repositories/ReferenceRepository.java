@@ -1,6 +1,8 @@
 package de.dbspraktikum.loader.db.repositories;
 
 import de.dbspraktikum.loader.db.Sql;
+import de.dbspraktikum.loader.error.ErrorLog;
+import de.dbspraktikum.loader.error.Errors;
 import de.dbspraktikum.loader.parse.JdbcUtil;
 import de.dbspraktikum.loader.parse.TextUtil;
 
@@ -70,28 +72,37 @@ public final class ReferenceRepository {
         }
     }
 
-    public void insertBookAuthor(String asin, int personId) throws SQLException {
+    public void insertBookAuthor(String asin, int personId, String author, String source, ErrorLog errors) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_BOOK_AUTHOR)) {
             statement.setString(1, asin);
             statement.setInt(2, personId);
-            statement.executeUpdate();
+            int changed = statement.executeUpdate();
+            if (changed == 0) {
+                errors.record("Buchautoren", "BuchID/Autor", asin + "/" + author, source + ":" + asin, Errors.DUPLICATE_BOOK_AUTHOR);
+            }
         }
     }
 
-    public void insertMusicArtist(String asin, int personId) throws SQLException {
+    public void insertMusicArtist(String asin, int personId, String artist, String source, ErrorLog errors) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_MUSIC_ARTIST)) {
             statement.setString(1, asin);
             statement.setInt(2, personId);
-            statement.executeUpdate();
+            int changed = statement.executeUpdate();
+            if (changed == 0) {
+                errors.record("Beteiligte Künstler", "Produktnummer/Künstler", asin + "/" + artist, source + ":" + asin, Errors.DUPLICATE_MUSIC_ARTIST);
+            }
         }
     }
 
-    public void insertDvdParticipant(String asin, int personId, String role) throws SQLException {
+    public void insertDvdParticipant(String asin, int personId, String role, String name, String source, ErrorLog errors) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_DVD_PARTICIPANT)) {
             statement.setString(1, asin);
             statement.setInt(2, personId);
             statement.setString(3, role);
-            statement.executeUpdate();
+            int changed = statement.executeUpdate();
+            if (changed == 0) {
+                errors.record("Beteiligte Personen", "Produktnummer/Person/Rolle", asin + "/" + name + "/" + role, source + ":" + asin, Errors.DUPLICATE_DVD_PARTICIPANT);
+            }
         }
     }
 

@@ -50,7 +50,7 @@ public final class CategoryXmlImporter extends Importer {
                 context.errors().record("Produktkategorien", "Produktnummer", asin, source + ":" + path, Errors.PRODUCT_NOT_FOUND);
                 continue;
             }
-            context.categories().insertProductCategory(asin, categoryId);
+            context.categories().insertProductCategory(asin, categoryId, path, source + ":" + path, context.errors());
         }
 
         for (Element child : XmlUtil.children(element, "category")) {

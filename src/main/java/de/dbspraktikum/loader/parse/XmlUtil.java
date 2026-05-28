@@ -14,9 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 public final class XmlUtil {
     private XmlUtil() {
@@ -104,11 +102,10 @@ public final class XmlUtil {
             return List.of();
         }
 
-        Set<String> deduplicated = new HashSet<>();
         List<String> values = new ArrayList<>();
         for (Element child : children(container, childName)) {
             String value = TextUtil.firstNonBlank(child.getAttribute("name"), child.getAttribute("value"), child.getAttribute("val"), child.getTextContent());
-            if (value != null && deduplicated.add(value)) {
+            if (value != null) {
                 values.add(value);
             }
         }

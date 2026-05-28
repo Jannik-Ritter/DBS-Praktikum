@@ -40,6 +40,10 @@ public final class ProductRepository {
         return productTypes.containsKey(productNumber);
     }
 
+    public String typeOf(String productNumber) {
+        return productTypes.get(productNumber);
+    }
+
     public boolean insertProduct(
             String asin,
             String title,
@@ -80,42 +84,70 @@ public final class ProductRepository {
         }
     }
 
-    public void insertBook(String asin, Integer pages, LocalDate publication, String isbn, Integer publisherId) throws SQLException {
+    public void insertBook(
+            String asin,
+            Integer pages,
+            LocalDate publication,
+            String isbn,
+            Integer publisherId,
+            String source,
+            ErrorLog errors
+    ) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_BOOK)) {
             statement.setString(1, asin);
             JdbcUtil.setInteger(statement, 2, pages);
             JdbcUtil.setDate(statement, 3, publication);
             statement.setString(4, isbn);
             JdbcUtil.setInteger(statement, 5, publisherId);
-            statement.executeUpdate();
+            int changed = statement.executeUpdate();
+            if (changed == 0) {
+                errors.record("Buch", "Produktnummer", asin, source + ":" + asin, Errors.DUPLICATE_PRODUCT_SUBTYPE);
+            }
         }
     }
 
-    public void insertMusicCd(String asin, Integer labelId, LocalDate releaseDate) throws SQLException {
+    public void insertMusicCd(String asin, Integer labelId, LocalDate releaseDate, String source, ErrorLog errors) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_MUSIC_CD)) {
             statement.setString(1, asin);
             JdbcUtil.setInteger(statement, 2, labelId);
             JdbcUtil.setDate(statement, 3, releaseDate);
-            statement.executeUpdate();
+            int changed = statement.executeUpdate();
+            if (changed == 0) {
+                errors.record("Musik-CD", "Produktnummer", asin, source + ":" + asin, Errors.DUPLICATE_PRODUCT_SUBTYPE);
+            }
         }
     }
 
-    public void insertDvd(String asin, String format, Integer runtimeMinutes, Integer regionCode, LocalDate releaseDate) throws SQLException {
+    public void insertDvd(
+            String asin,
+            String format,
+            Integer runtimeMinutes,
+            Integer regionCode,
+            LocalDate releaseDate,
+            String source,
+            ErrorLog errors
+    ) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_DVD)) {
             statement.setString(1, asin);
             statement.setString(2, format);
             statement.setString(3, runtimeMinutes == null ? null : runtimeMinutes + " minutes");
             JdbcUtil.setInteger(statement, 4, regionCode);
             JdbcUtil.setDate(statement, 5, releaseDate);
-            statement.executeUpdate();
+            int changed = statement.executeUpdate();
+            if (changed == 0) {
+                errors.record("DVD", "Produktnummer", asin, source + ":" + asin, Errors.DUPLICATE_PRODUCT_SUBTYPE);
+            }
         }
     }
 
-    public void insertTrack(String asin, String track) throws SQLException {
+    public void insertTrack(String asin, String track, String source, ErrorLog errors) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_TRACK)) {
             statement.setString(1, asin);
             statement.setString(2, track);
-            statement.executeUpdate();
+            int changed = statement.executeUpdate();
+            if (changed == 0) {
+                errors.record("Lied", "Name", track, source + ":" + asin, Errors.DUPLICATE_TRACK);
+            }
         }
     }
 
@@ -123,7 +155,7 @@ public final class ProductRepository {
         try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_PRODUCT_SIMILARITY)) {
             for (SimilarRef ref : refs) {
                 if (!Validation.validAsin(ref.similarProduct())) {
-                    errors.record("Produktähnlichkeit", "Produktnummer2", ref.similarProduct(), ref.source() + ":" + ref.sourceProduct(), Errors.INVALID_ASIN);
+                    errors.record("Produktähnlichkeit", "Produktnummer2", ref.similarProduct(), ref.source() + ":" + ref.sourceProduct(), Errors.INVALID_PRODUCT_NUMBER);
                     continue;
                 }
                 if (!exists(ref.similarProduct())) {
@@ -139,9 +171,8 @@ public final class ProductRepository {
                 String second = ref.sourceProduct().compareTo(ref.similarProduct()) < 0 ? ref.similarProduct() : ref.sourceProduct();
                 statement.setString(1, first);
                 statement.setString(2, second);
-                statement.addBatch();
+                statement.executeUpdate();
             }
-            statement.executeBatch();
         }
     }
 }
