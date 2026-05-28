@@ -1,7 +1,7 @@
 package de.dbspraktikum.loader.app;
 
 import de.dbspraktikum.loader.db.Database;
-import de.dbspraktikum.loader.db.ErrorRepository;
+import de.dbspraktikum.loader.db.repositories.ErrorRepository;
 import de.dbspraktikum.loader.error.ErrorLog;
 import de.dbspraktikum.loader.importer.CategoryXmlImporter;
 import de.dbspraktikum.loader.importer.ReviewCsvImporter;

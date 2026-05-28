@@ -1,5 +1,6 @@
-package de.dbspraktikum.loader.db;
+package de.dbspraktikum.loader.db.repositories;
 
+import de.dbspraktikum.loader.db.Sql;
 import de.dbspraktikum.loader.error.ErrorLog;
 import de.dbspraktikum.loader.error.Errors;
 import de.dbspraktikum.loader.model.SimilarRef;

@@ -1,4 +1,6 @@
-package de.dbspraktikum.loader.db;
+package de.dbspraktikum.loader.db.repositories;
+
+import de.dbspraktikum.loader.db.Sql;
 
 import java.math.BigDecimal;
 import java.sql.Connection;

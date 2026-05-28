@@ -1,6 +1,6 @@
 package de.dbspraktikum.loader.error;
 
-import de.dbspraktikum.loader.db.ErrorRepository;
+import de.dbspraktikum.loader.db.repositories.ErrorRepository;
 import de.dbspraktikum.loader.parse.CsvUtil;
 
 import java.io.BufferedWriter;

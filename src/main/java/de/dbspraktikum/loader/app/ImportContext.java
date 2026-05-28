@@ -1,11 +1,11 @@
 package de.dbspraktikum.loader.app;
 
-import de.dbspraktikum.loader.db.CategoryRepository;
 import de.dbspraktikum.loader.db.Database;
-import de.dbspraktikum.loader.db.OfferRepository;
-import de.dbspraktikum.loader.db.ProductRepository;
-import de.dbspraktikum.loader.db.ReferenceRepository;
-import de.dbspraktikum.loader.db.ReviewRepository;
+import de.dbspraktikum.loader.db.repositories.CategoryRepository;
+import de.dbspraktikum.loader.db.repositories.OfferRepository;
+import de.dbspraktikum.loader.db.repositories.ProductRepository;
+import de.dbspraktikum.loader.db.repositories.ReferenceRepository;
+import de.dbspraktikum.loader.db.repositories.ReviewRepository;
 import de.dbspraktikum.loader.error.ErrorLog;
 import de.dbspraktikum.loader.model.SimilarRef;
 import de.dbspraktikum.loader.parse.ValueParser;
