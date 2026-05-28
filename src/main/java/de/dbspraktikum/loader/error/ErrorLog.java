@@ -1,6 +1,7 @@
 package de.dbspraktikum.loader.error;
 
 import de.dbspraktikum.loader.db.ErrorRepository;
+import de.dbspraktikum.loader.parse.CsvUtil;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -18,10 +19,13 @@ public final class ErrorLog implements AutoCloseable {
 
     public ErrorLog(Path rejects, ErrorRepository repository) throws IOException {
         this.repository = repository;
+
+        // Directory erstellen, falls es nicht existiert
         Path parent = rejects.getParent();
         if (parent != null) {
             Files.createDirectories(parent);
         }
+
         writer = Files.newBufferedWriter(rejects, StandardCharsets.UTF_8);
         writer.write("Entity,Attribut,Rohwert,Quelle,Meldung");
         writer.newLine();
@@ -33,16 +37,10 @@ public final class ErrorLog implements AutoCloseable {
 
     public void record(LoadError error) {
         counts.merge(error.key(), 1, Integer::sum);
+        
         try {
-            writer.write(csvEscape(error.entity()));
-            writer.write(',');
-            writer.write(csvEscape(error.attribute()));
-            writer.write(',');
-            writer.write(csvEscape(error.rawValue()));
-            writer.write(',');
-            writer.write(csvEscape(error.source()));
-            writer.write(',');
-            writer.write(csvEscape(error.message()));
+            writer.write(CsvUtil.formatRow(
+                    error.entity(), error.attribute(), error.rawValue(), error.source(), error.message()));
             writer.newLine();
             writer.flush();
             repository.insert(error);
@@ -53,13 +51,6 @@ public final class ErrorLog implements AutoCloseable {
 
     public Map<String, Integer> counts() {
         return counts;
-    }
-
-    private static String csvEscape(String value) {
-        if (value == null) {
-            return "";
-        }
-        return "\"" + value.replace("\"", "\"\"") + "\"";
     }
 
     @Override

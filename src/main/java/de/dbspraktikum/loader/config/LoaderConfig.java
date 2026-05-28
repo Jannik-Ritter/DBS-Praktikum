@@ -18,6 +18,10 @@ public record LoaderConfig(
         String dbUser,
         String dbPassword
 ) {
+    private static final String DEFAULT_DATA_DIR = "data";
+    private static final String DEFAULT_SCHEMA = "src/dbs-schema.sql";
+    private static final String DEFAULT_REJECTS = "build/rejected-records.csv";
+
     private static final String DEFAULT_DB_URL = "jdbc:postgresql://localhost:5432/postgres";
     private static final String DEFAULT_USER = "postgres";
     private static final String DEFAULT_PASSWORD = "test";
@@ -26,10 +30,13 @@ public record LoaderConfig(
         Map<String, String> parsed = parseArgs(args);
         Properties properties = loadProperties(parsed);
 
-        Path dataDir = Path.of(value(parsed, properties, "--data-dir", "data.dir", "data"));
-        String schemaValue = value(parsed, properties, "--schema", "schema", "src/dbs-schema.sql");
+        // Dateien laden
+        Path dataDir = Path.of(value(parsed, properties, "--data-dir", "data.dir", DEFAULT_DATA_DIR));
+        String schemaValue = value(parsed, properties, "--schema", "schema", DEFAULT_SCHEMA);
         Path schema = "none".equalsIgnoreCase(schemaValue) ? null : Path.of(schemaValue);
-        Path rejects = Path.of(value(parsed, properties, "--rejects", "rejects", "build/rejected-records.csv"));
+        Path rejects = Path.of(value(parsed, properties, "--rejects", "rejects", DEFAULT_REJECTS));
+
+        // Credentials laden
         String dbUrl = value(parsed, properties, "--db-url", "db.url", env("DB_URL", DEFAULT_DB_URL));
         String dbUser = value(parsed, properties, "--db-user", "db.user", env("DB_USER", DEFAULT_USER));
         String dbPassword = value(parsed, properties, "--db-password", "db.password", env("DB_PASSWORD", DEFAULT_PASSWORD));
@@ -40,17 +47,20 @@ public record LoaderConfig(
     private static Properties loadProperties(Map<String, String> parsed) throws IOException {
         Properties properties = new Properties();
         Path propertiesPath = parsed.containsKey("--config") ? Path.of(parsed.get("--config")) : Path.of("loader.properties");
+
         if (Files.exists(propertiesPath)) {
             try (InputStream input = Files.newInputStream(propertiesPath)) {
                 properties.load(input);
             }
         }
+
         return properties;
     }
 
     private static Map<String, String> parseArgs(String[] args) {
         Map<String, String> parsed = new LinkedHashMap<>();
         ArrayDeque<String> remaining = new ArrayDeque<>(List.of(args));
+
         while (!remaining.isEmpty()) {
             String key = remaining.removeFirst();
             if (!key.startsWith("--")) {
@@ -61,6 +71,7 @@ public record LoaderConfig(
             }
             parsed.put(key, remaining.removeFirst());
         }
+
         return parsed;
     }
 
@@ -68,6 +79,7 @@ public record LoaderConfig(
         return args.getOrDefault(argName, properties.getProperty(propertyName, defaultValue));
     }
 
+    // Environment Variablen laden (falls vorhanden)
     private static String env(String name, String defaultValue) {
         String value = System.getenv(name);
         return value == null || value.isBlank() ? defaultValue : value;

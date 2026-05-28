@@ -1,6 +1,7 @@
 package de.dbspraktikum.loader.db;
 
 import de.dbspraktikum.loader.error.ErrorLog;
+import de.dbspraktikum.loader.error.Errors;
 import de.dbspraktikum.loader.model.SimilarRef;
 import de.dbspraktikum.loader.parse.JdbcUtil;
 import de.dbspraktikum.loader.validation.Validation;
@@ -52,7 +53,7 @@ public final class ProductRepository {
         String existingType = productTypes.get(asin);
         if (existingType != null) {
             if (!existingType.equals(type)) {
-                errors.record("Produkt", "Produkttyp", type, source + ":" + asin, "Produkt wurde bereits mit anderem Typ geladen: " + existingType);
+                errors.record("Produkt", "Produkttyp", type, source + ":" + asin, Errors.productTypeMismatch(existingType));
                 return false;
             }
             return true;
@@ -120,21 +121,21 @@ public final class ProductRepository {
     public void insertSimilarRefs(List<SimilarRef> refs, ErrorLog errors) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_PRODUCT_SIMILARITY)) {
             for (SimilarRef ref : refs) {
-                if (!Validation.validAsin(ref.target())) {
-                    errors.record("Produktähnlichkeit", "Produktnummer2", ref.target(), ref.source() + ":" + ref.sourceProduct(), "Ungueltige ASIN");
+                if (!Validation.validAsin(ref.similarProduct())) {
+                    errors.record("Produktähnlichkeit", "Produktnummer2", ref.similarProduct(), ref.source() + ":" + ref.sourceProduct(), Errors.INVALID_ASIN);
                     continue;
                 }
-                if (!exists(ref.target())) {
-                    errors.record("Produktähnlichkeit", "Produktnummer2", ref.target(), ref.source() + ":" + ref.sourceProduct(), "Aehnliches Produkt existiert nicht");
+                if (!exists(ref.similarProduct())) {
+                    errors.record("Produktähnlichkeit", "Produktnummer2", ref.similarProduct(), ref.source() + ":" + ref.sourceProduct(), Errors.SIMILAR_PRODUCT_NOT_FOUND);
                     continue;
                 }
-                if (ref.sourceProduct().equals(ref.target())) {
-                    errors.record("Produktähnlichkeit", "Produktnummer2", ref.target(), ref.source() + ":" + ref.sourceProduct(), "Produkt darf nicht sich selbst aehnlich sein");
+                if (ref.sourceProduct().equals(ref.similarProduct())) {
+                    errors.record("Produktähnlichkeit", "Produktnummer2", ref.similarProduct(), ref.source() + ":" + ref.sourceProduct(), Errors.SELF_SIMILAR_PRODUCT);
                     continue;
                 }
 
-                String first = ref.sourceProduct().compareTo(ref.target()) < 0 ? ref.sourceProduct() : ref.target();
-                String second = ref.sourceProduct().compareTo(ref.target()) < 0 ? ref.target() : ref.sourceProduct();
+                String first = ref.sourceProduct().compareTo(ref.similarProduct()) < 0 ? ref.sourceProduct() : ref.similarProduct();
+                String second = ref.sourceProduct().compareTo(ref.similarProduct()) < 0 ? ref.similarProduct() : ref.sourceProduct();
                 statement.setString(1, first);
                 statement.setString(2, second);
                 statement.addBatch();

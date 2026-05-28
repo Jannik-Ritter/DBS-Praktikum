@@ -1,6 +1,7 @@
 package de.dbspraktikum.loader.db;
 
 import de.dbspraktikum.loader.error.ErrorLog;
+import de.dbspraktikum.loader.error.Errors;
 import de.dbspraktikum.loader.parse.JdbcUtil;
 
 import java.sql.Connection;
@@ -35,9 +36,10 @@ public final class ReviewRepository {
             statement.setString(5, summary);
             statement.setString(6, content);
             statement.setInt(7, rating);
+
             int changed = statement.executeUpdate();
             if (changed == 0) {
-                errors.record("Kundenrezension", "KundeID/Produktnummer", user + "/" + asin, source, "Doppelte Rezension");
+                errors.record("Kundenrezension", "KundeID/Produktnummer", user + "/" + asin, source, Errors.DUPLICATE_REVIEW);
             }
         }
     }

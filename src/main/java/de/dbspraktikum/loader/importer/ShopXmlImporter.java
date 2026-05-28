@@ -1,6 +1,7 @@
 package de.dbspraktikum.loader.importer;
 
 import de.dbspraktikum.loader.app.ImportContext;
+import de.dbspraktikum.loader.error.Errors;
 import de.dbspraktikum.loader.model.SimilarRef;
 import de.dbspraktikum.loader.parse.TextUtil;
 import de.dbspraktikum.loader.parse.XmlUtil;
@@ -9,22 +10,20 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 import java.math.BigDecimal;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
 
-public final class ShopXmlImporter {
-    private final ImportContext context;
+public final class ShopXmlImporter extends Importer {
 
     public ShopXmlImporter(ImportContext context) {
-        this.context = context;
+        super(context);
     }
 
+    @Override
     public void importFile(Path path) throws Exception {
-        if (!Files.exists(path)) {
-            context.errors().record("Datei", "Pfad", path.toString(), path.toString(), "Datei nicht gefunden");
+        if (!requireFile(path)) {
             return;
         }
 
@@ -47,17 +46,17 @@ public final class ShopXmlImporter {
         String type = Validation.mapProductType(rawType);
 
         if (!Validation.validAsin(asin)) {
-            context.errors().record("Produkt", "Produktnummer", item.getAttribute("asin"), source, "ASIN fehlt oder hat kein gueltiges Format");
+            context.errors().record("Produkt", "Produktnummer", item.getAttribute("asin"), source, Errors.ASIN_MISSING_OR_INVALID);
             return;
         }
         if (type == null) {
-            context.errors().record("Produkt", "Produkttyp", rawType, source + ":" + asin, "Unbekannter Produkttyp");
+            context.errors().record("Produkt", "Produkttyp", rawType, source + ":" + asin, Errors.UNKNOWN_PRODUCT_TYPE);
             return;
         }
 
         String title = TextUtil.clean(XmlUtil.firstText(item, "title"));
         if (title == null || title.isBlank()) {
-            context.errors().record("Produkt", "Titel", null, source + ":" + asin, "Pflichtfeld fehlt");
+            context.errors().record("Produkt", "Titel", null, source + ":" + asin, Errors.REQUIRED_FIELD_MISSING);
             return;
         }
 

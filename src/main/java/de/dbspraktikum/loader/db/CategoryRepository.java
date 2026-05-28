@@ -22,10 +22,12 @@ public final class CategoryRepository {
         if (existing != null) {
             return existing;
         }
+
         try (PreparedStatement statement = connection.prepareStatement(Sql.UPSERT_CATEGORY)) {
             statement.setString(1, name);
             statement.setString(2, path);
-            JdbcUtil.setInteger(statement, 3, parentId);
+            JdbcUtil.setInteger(statement, 3, parentId); // Wenn Null dann Oberkategorie
+
             try (ResultSet rs = statement.executeQuery()) {
                 rs.next();
                 int id = rs.getInt(1);

@@ -55,11 +55,16 @@ public final class LoaderApp {
         System.out.printf("Rezensionen: %d%n", database.countReviews());
         System.out.printf("Kategorien: %d%n", database.countCategories());
         System.out.printf("Ladefehler: %d%n", database.countLoadErrors());
-        if (!errors.counts().isEmpty()) {
+
+        var counts = errors.counts();
+        if (counts.isEmpty()) {
+            System.out.println("Keine Fehler gefunden.");
+        } else {
             System.out.println("Fehler nach Art:");
-            errors.counts().entrySet().stream()
+            counts.entrySet().stream()
                     .sorted(Map.Entry.comparingByKey())
-                    .forEach(entry -> System.out.printf("- %s: %d%n", entry.getKey(), entry.getValue()));
+                    .forEach(e -> System.out.printf("- %s: %d%n", e.getKey(), e.getValue()));
+            System.out.printf("Insgesamt: %d%n", counts.values().stream().mapToInt(Integer::intValue).sum());
         }
     }
 }

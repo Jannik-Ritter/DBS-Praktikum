@@ -26,13 +26,28 @@ public final class Database implements AutoCloseable {
         Properties dbProperties = new Properties();
         dbProperties.setProperty("user", config.dbUser());
         dbProperties.setProperty("password", config.dbPassword());
+
         Connection connection = DriverManager.getConnection(config.dbUrl(), dbProperties);
         connection.setAutoCommit(false);
+
         return new Database(connection);
     }
 
     public Connection connection() {
         return connection;
+    }
+
+    public void commit() throws SQLException {
+        connection.commit();
+    }
+
+    public void rollback() throws SQLException {
+        connection.rollback();
+    }
+
+    @Override
+    public void close() throws SQLException {
+        connection.close();
     }
 
     public void executeSchema(Path schema) throws IOException, SQLException {
@@ -70,24 +85,13 @@ public final class Database implements AutoCloseable {
     }
 
     private long count(String sql) throws SQLException {
-        try (Statement statement = connection.createStatement();
-             ResultSet rs = statement.executeQuery(sql)) {
+        try (
+            Statement statement = connection.createStatement();
+            ResultSet rs = statement.executeQuery(sql)
+            ) {
             rs.next();
             return rs.getLong(1);
         }
-    }
-
-    public void commit() throws SQLException {
-        connection.commit();
-    }
-
-    public void rollback() throws SQLException {
-        connection.rollback();
-    }
-
-    @Override
-    public void close() throws SQLException {
-        connection.close();
     }
 
     private static List<String> splitSql(String sql) {

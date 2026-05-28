@@ -1,25 +1,24 @@
 package de.dbspraktikum.loader.importer;
 
 import de.dbspraktikum.loader.app.ImportContext;
+import de.dbspraktikum.loader.error.Errors;
 import de.dbspraktikum.loader.parse.CsvReader;
 import de.dbspraktikum.loader.parse.TextUtil;
 import de.dbspraktikum.loader.validation.Validation;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.time.LocalDate;
 
-public final class ReviewCsvImporter {
-    private final ImportContext context;
+public final class ReviewCsvImporter extends Importer {
 
     public ReviewCsvImporter(ImportContext context) {
-        this.context = context;
+        super(context);
     }
 
+    @Override
     public void importFile(Path path) throws Exception {
-        if (!Files.exists(path)) {
-            context.errors().record("Datei", "Pfad", path.toString(), path.toString(), "Datei nicht gefunden");
+        if (!requireFile(path)) {
             return;
         }
 
@@ -34,23 +33,23 @@ public final class ReviewCsvImporter {
     private void loadReview(String source, CsvReader.Row row) throws SQLException {
         String asin = Validation.normalizeAsin(row.value("product"));
         if (!Validation.validAsin(asin)) {
-            context.errors().record("Kundenrezension", "Produktnummer", row.value("product"), source, "Ungueltige ASIN");
+            context.errors().record("Kundenrezension", "Produktnummer", row.value("product"), source, Errors.INVALID_ASIN);
             return;
         }
         if (!context.products().exists(asin)) {
-            context.errors().record("Kundenrezension", "Produktnummer", asin, source, "Produkt existiert nicht");
+            context.errors().record("Kundenrezension", "Produktnummer", asin, source, Errors.PRODUCT_NOT_FOUND);
             return;
         }
 
         Integer rating = context.parser().integer(row.value("rating"), "Kundenrezension", "Punkte", source);
         if (rating == null || rating < 1 || rating > 5) {
-            context.errors().record("Kundenrezension", "Punkte", row.value("rating"), source, "Bewertung muss zwischen 1 und 5 liegen");
+            context.errors().record("Kundenrezension", "Punkte", row.value("rating"), source, Errors.RATING_OUT_OF_RANGE);
             return;
         }
 
         String user = TextUtil.clean(row.value("user"));
         if (user == null) {
-            context.errors().record("Kundenrezension", "user", null, source, "Rezensent fehlt");
+            context.errors().record("Kundenrezension", "user", null, source, Errors.REVIEWER_MISSING);
             return;
         }
 

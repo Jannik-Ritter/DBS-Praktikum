@@ -1,6 +1,7 @@
 package de.dbspraktikum.loader.parse;
 
 import de.dbspraktikum.loader.error.ErrorLog;
+import de.dbspraktikum.loader.error.Errors;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -18,7 +19,7 @@ public final class ValueParser {
             return null;
         }
         if (value <= 0) {
-            errors.record(entity, attribute, raw, source, "Wert muss groesser als 0 sein");
+            errors.record(entity, attribute, raw, source, Errors.VALUE_MUST_BE_POSITIVE);
             return null;
         }
         return value;
@@ -30,7 +31,7 @@ public final class ValueParser {
             return null;
         }
         if (value < 0) {
-            errors.record(entity, attribute, raw, source, "Wert darf nicht negativ sein");
+            errors.record(entity, attribute, raw, source, Errors.VALUE_MUST_NOT_BE_NEGATIVE);
             return null;
         }
         return value;
@@ -44,7 +45,7 @@ public final class ValueParser {
         try {
             return Integer.parseInt(cleaned);
         } catch (NumberFormatException ex) {
-            errors.record(entity, attribute, raw, source, "Wert ist keine ganze Zahl");
+            errors.record(entity, attribute, raw, source, Errors.VALUE_NOT_INTEGER);
             return null;
         }
     }
@@ -57,12 +58,12 @@ public final class ValueParser {
         try {
             LocalDate date = LocalDate.parse(cleaned);
             if (date.isAfter(LocalDate.now())) {
-                errors.record(entity, attribute, raw, source, "Datum darf nicht in der Zukunft liegen");
+                errors.record(entity, attribute, raw, source, Errors.DATE_IN_FUTURE);
                 return null;
             }
             return date;
         } catch (RuntimeException ex) {
-            errors.record(entity, attribute, raw, source, "Datum ist nicht im Format YYYY-MM-DD");
+            errors.record(entity, attribute, raw, source, Errors.DATE_INVALID_FORMAT);
             return null;
         }
     }
@@ -77,12 +78,12 @@ public final class ValueParser {
             BigDecimal multiplier = TextUtil.clean(rawMultiplier) == null ? BigDecimal.ONE : new BigDecimal(rawMultiplier);
             BigDecimal result = price.multiply(multiplier);
             if (result.signum() < 0) {
-                errors.record("Konditionen", "Preis", cleanedPrice, source, "Preis darf nicht negativ sein");
+                errors.record("Konditionen", "Preis", cleanedPrice, source, Errors.PRICE_MUST_NOT_BE_NEGATIVE);
                 return null;
             }
             return result;
         } catch (NumberFormatException ex) {
-            errors.record("Konditionen", "Preis", cleanedPrice, source, "Preis ist keine gueltige Zahl");
+            errors.record("Konditionen", "Preis", cleanedPrice, source, Errors.PRICE_NOT_VALID_NUMBER);
             return null;
         }
     }
