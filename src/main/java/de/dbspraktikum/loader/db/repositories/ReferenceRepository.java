@@ -95,6 +95,15 @@ public final class ReferenceRepository {
         }
     }
 
+    public void insertBookPublisher(String asin, int publisherId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_BOOK_PUBLISHER)) {
+            statement.setString(1, asin);
+            statement.setInt(2, publisherId);
+            statement.setString(3, asin);
+            statement.executeUpdate();
+        }
+    }
+
     public void insertMusicArtist(String asin, int personId, String artist, String source, ErrorLog errors) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_MUSIC_ARTIST)) {
             statement.setString(1, asin);
@@ -104,6 +113,15 @@ public final class ReferenceRepository {
             if (changed == 0) {
                 errors.record("Beteiligte Künstler", "Produktnummer/Künstler", asin + "/" + artist, source + ":" + asin, Errors.DUPLICATE_MUSIC_ARTIST);
             }
+        }
+    }
+
+    public void insertMusicCdLabel(String asin, int labelId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_MUSIC_CD_LABEL)) {
+            statement.setString(1, asin);
+            statement.setInt(2, labelId);
+            statement.setString(3, asin);
+            statement.executeUpdate();
         }
     }
 

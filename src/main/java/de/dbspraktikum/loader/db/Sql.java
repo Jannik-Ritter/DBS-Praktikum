@@ -35,16 +35,16 @@ public final class Sql {
 
     public static final String INSERT_BOOK = """
             INSERT INTO "Buch" (
-                "Produktnummer", "Seitenzahl", "Erscheinungsdatum", "ISBN-Nummer", "VerlagID",
+                "Produktnummer", "Seitenzahl", "Erscheinungsdatum", "ISBN-Nummer",
                 "Bindung", "Auflage", "Paketgewicht", "Pakethoehe", "Paketlaenge"
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT ("Produktnummer") DO NOTHING
             """;
 
     public static final String INSERT_MUSIC_CD = """
-            INSERT INTO "Musik-CD" ("Produktnummer", "LabelID", "Erscheinungsdatum", "Bindung", "Format", "AnzahlDiscs", "UPC")
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO "Musik-CD" ("Produktnummer", "Erscheinungsdatum", "Bindung", "Format", "AnzahlDiscs", "UPC")
+            VALUES (?, ?, ?, ?, ?, ?)
             ON CONFLICT ("Produktnummer") DO NOTHING
             """;
 
@@ -58,8 +58,8 @@ public final class Sql {
             """;
 
     public static final String INSERT_TRACK = """
-            INSERT INTO "Lied" ("Produktnummer", "Name")
-            VALUES (?, ?)
+            INSERT INTO "Lied" ("Produktnummer", "Tracknummer", "Name")
+            VALUES (?, ?, ?)
             ON CONFLICT DO NOTHING
             """;
 
@@ -113,9 +113,27 @@ public final class Sql {
             ON CONFLICT DO NOTHING
             """;
 
+    public static final String INSERT_BOOK_PUBLISHER = """
+            INSERT INTO "Buchverlage" ("BuchID", "VerlagID")
+            SELECT ?, ?
+            WHERE EXISTS (
+                SELECT 1 FROM "Buch" WHERE "Produktnummer" = ?
+            )
+            ON CONFLICT DO NOTHING
+            """;
+
     public static final String INSERT_MUSIC_ARTIST = """
             INSERT INTO "Beteiligte Künstler" ("Produktnummer", "KünstlerID")
             VALUES (?, ?)
+            ON CONFLICT DO NOTHING
+            """;
+
+    public static final String INSERT_MUSIC_CD_LABEL = """
+            INSERT INTO "MusikCDLabels" ("Produktnummer", "LabelID")
+            SELECT ?, ?
+            WHERE EXISTS (
+                SELECT 1 FROM "Musik-CD" WHERE "Produktnummer" = ?
+            )
             ON CONFLICT DO NOTHING
             """;
 

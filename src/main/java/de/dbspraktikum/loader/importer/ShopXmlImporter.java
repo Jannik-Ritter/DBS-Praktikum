@@ -62,6 +62,7 @@ public final class ShopXmlImporter extends Importer {
                 return;
             }
             loadOffer(source, branchId, asin, item);
+            loadSubtypeReferences(type, asin, item);
             loadSupplementalData(asin, item);
             collectSimilarRefs(source, asin, item);
             return;
@@ -112,7 +113,6 @@ public final class ShopXmlImporter extends Importer {
         }
         Integer pages = context.parser().positiveInt(XmlUtil.text(XmlUtil.firstChild(spec, "pages")), "Buch", "Seitenzahl", source + ":" + asin);
         LocalDate publication = context.parser().date(XmlUtil.attr(XmlUtil.firstChild(spec, "publication"), "date"), "Buch", "Erscheinungsdatum", source + ":" + asin);
-        Integer publisherId = firstIdFromContainer(item, "publishers", "publisher", "Verlag");
         String binding = TextUtil.clean(XmlUtil.firstText(spec, "binding"));
         String edition = TextUtil.clean(XmlUtil.attr(XmlUtil.firstChild(spec, "edition"), "val"));
         Element packageElement = XmlUtil.firstChild(spec, "package");
@@ -120,10 +120,15 @@ public final class ShopXmlImporter extends Importer {
         BigDecimal packageHeight = context.parser().decimal(XmlUtil.attr(packageElement, "height"), "Buch", "Pakethoehe", source + ":" + asin);
         BigDecimal packageLength = context.parser().decimal(XmlUtil.attr(packageElement, "length"), "Buch", "Paketlaenge", source + ":" + asin);
 
-        context.products().insertBook(
-                asin, pages, publication, rawIsbn, publisherId,
+        boolean inserted = context.products().insertBook(
+                asin, pages, publication, rawIsbn,
                 binding, edition, packageWeight, packageHeight, packageLength,
                 source, context.errors());
+        if (!inserted) {
+            return;
+        }
+
+        loadBookPublishers(asin, item);
 
         List<String> authors = XmlUtil.valuesFromContainer(item, "authors", "author");
         if (authors.isEmpty()) {
@@ -145,13 +150,17 @@ public final class ShopXmlImporter extends Importer {
         LocalDate releaseDate = context.parser().date(
                 TextUtil.firstNonBlank(XmlUtil.firstText(spec, "releasedate"), XmlUtil.attr(XmlUtil.firstChild(spec, "releasedate"), "date")),
                 "Musik-CD", "Erscheinungsdatum", source + ":" + asin);
-        Integer labelId = firstIdFromContainer(item, "labels", "label", "Label");
         String binding = TextUtil.clean(XmlUtil.firstText(spec, "binding"));
         String format = TextUtil.clean(TextUtil.firstNonBlank(XmlUtil.firstText(spec, "format"), XmlUtil.attr(XmlUtil.firstChild(spec, "format"), "value")));
         Integer discCount = context.parser().positiveInt(XmlUtil.firstText(spec, "num_discs"), "Musik-CD", "AnzahlDiscs", source + ":" + asin);
         String upc = TextUtil.clean(TextUtil.firstNonBlank(XmlUtil.firstText(spec, "upc"), XmlUtil.attr(XmlUtil.firstChild(spec, "upc"), "val")));
 
-        context.products().insertMusicCd(asin, labelId, releaseDate, binding, format, discCount, upc, source, context.errors());
+        boolean inserted = context.products().insertMusicCd(asin, releaseDate, binding, format, discCount, upc, source, context.errors());
+        if (!inserted) {
+            return;
+        }
+
+        loadMusicLabels(asin, item);
 
         List<String> artists = XmlUtil.valuesFromContainer(item, "artists", "artist");
         if (artists.isEmpty()) {
@@ -170,10 +179,12 @@ public final class ShopXmlImporter extends Importer {
         if (tracks.isEmpty()) {
             context.errors().record("Lied", "Name", asin, source + ":" + asin, Errors.MUSIC_TRACK_MISSING);
         }
+        int trackNumber = 1;
         for (String track : tracks) {
             String name = TextUtil.clean(track);
             if (name != null) {
-                context.products().insertTrack(asin, name, source, context.errors());
+                context.products().insertTrack(asin, trackNumber, name, source, context.errors());
+                trackNumber++;
             }
         }
     }
@@ -205,18 +216,29 @@ public final class ShopXmlImporter extends Importer {
         }
     }
 
-    private Integer firstIdFromContainer(Element item, String container, String child, String target) throws SQLException {
-        List<String> values = XmlUtil.valuesFromContainer(item, container, child);
-        if (values.isEmpty()) {
-            return null;
+    private void loadSubtypeReferences(String type, String asin, Element item) throws SQLException {
+        switch (type) {
+            case "Buch" -> loadBookPublishers(asin, item);
+            case "Musik-CD" -> loadMusicLabels(asin, item);
+            case "DVD" -> {
+                // DVDs haben keine ausgelagerte Verlags-/Label-Zuordnung.
+            }
+            default -> throw new IllegalStateException("Nicht behandelter Produkttyp: " + type);
         }
-        if ("Verlag".equals(target)) {
-            return context.references().publisherId(values.getFirst());
+    }
+
+    private void loadBookPublishers(String asin, Element item) throws SQLException {
+        for (String publisher : XmlUtil.valuesFromContainer(item, "publishers", "publisher")) {
+            int publisherId = context.references().publisherId(publisher);
+            context.references().insertBookPublisher(asin, publisherId);
         }
-        if ("Label".equals(target)) {
-            return context.references().labelId(values.getFirst());
+    }
+
+    private void loadMusicLabels(String asin, Element item) throws SQLException {
+        for (String label : XmlUtil.valuesFromContainer(item, "labels", "label")) {
+            int labelId = context.references().labelId(label);
+            context.references().insertMusicCdLabel(asin, labelId);
         }
-        throw new IllegalArgumentException("Unbekanntes Ziel: " + target);
     }
 
     private void loadOffer(String source, int branchId, String asin, Element item) throws SQLException {

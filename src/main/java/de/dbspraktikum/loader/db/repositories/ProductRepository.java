@@ -88,12 +88,11 @@ public final class ProductRepository {
         }
     }
 
-    public void insertBook(
+    public boolean insertBook(
             String asin,
             Integer pages,
             LocalDate publication,
             String isbn,
-            Integer publisherId,
             String binding,
             String edition,
             BigDecimal packageWeight,
@@ -107,23 +106,23 @@ public final class ProductRepository {
             JdbcUtil.setInteger(statement, 2, pages);
             JdbcUtil.setDate(statement, 3, publication);
             statement.setString(4, isbn);
-            JdbcUtil.setInteger(statement, 5, publisherId);
-            statement.setString(6, binding);
-            statement.setString(7, edition);
-            JdbcUtil.setBigDecimal(statement, 8, packageWeight);
-            JdbcUtil.setBigDecimal(statement, 9, packageHeight);
-            JdbcUtil.setBigDecimal(statement, 10, packageLength);
+            statement.setString(5, binding);
+            statement.setString(6, edition);
+            JdbcUtil.setBigDecimal(statement, 7, packageWeight);
+            JdbcUtil.setBigDecimal(statement, 8, packageHeight);
+            JdbcUtil.setBigDecimal(statement, 9, packageLength);
 
             int changed = statement.executeUpdate();
             if (changed == 0) {
                 errors.record("Buch", "Produktnummer", asin, source + ":" + asin, Errors.DUPLICATE_PRODUCT_SUBTYPE);
+                return false;
             }
+            return true;
         }
     }
 
-    public void insertMusicCd(
+    public boolean insertMusicCd(
             String asin,
-            Integer labelId,
             LocalDate releaseDate,
             String binding,
             String format,
@@ -134,17 +133,18 @@ public final class ProductRepository {
     ) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_MUSIC_CD)) {
             statement.setString(1, asin);
-            JdbcUtil.setInteger(statement, 2, labelId);
-            JdbcUtil.setDate(statement, 3, releaseDate);
-            statement.setString(4, binding);
-            statement.setString(5, format);
-            JdbcUtil.setInteger(statement, 6, discCount);
-            statement.setString(7, upc);
+            JdbcUtil.setDate(statement, 2, releaseDate);
+            statement.setString(3, binding);
+            statement.setString(4, format);
+            JdbcUtil.setInteger(statement, 5, discCount);
+            statement.setString(6, upc);
 
             int changed = statement.executeUpdate();
             if (changed == 0) {
                 errors.record("Musik-CD", "Produktnummer", asin, source + ":" + asin, Errors.DUPLICATE_PRODUCT_SUBTYPE);
+                return false;
             }
+            return true;
         }
     }
 
@@ -177,10 +177,11 @@ public final class ProductRepository {
         }
     }
 
-    public void insertTrack(String asin, String track, String source, ErrorLog errors) throws SQLException {
+    public void insertTrack(String asin, int trackNumber, String track, String source, ErrorLog errors) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_TRACK)) {
             statement.setString(1, asin);
-            statement.setString(2, track);
+            statement.setInt(2, trackNumber);
+            statement.setString(3, track);
 
             int changed = statement.executeUpdate();
             if (changed == 0) {
