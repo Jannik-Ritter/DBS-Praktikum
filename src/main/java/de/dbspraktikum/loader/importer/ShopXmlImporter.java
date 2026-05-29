@@ -12,6 +12,7 @@ import org.w3c.dom.Element;
 import java.math.BigDecimal;
 import java.nio.file.Path;
 import java.sql.SQLException;
+import java.sql.Savepoint;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -56,16 +57,23 @@ public final class ShopXmlImporter extends Importer {
 
         String existingType = context.products().typeOf(asin);
         if (existingType != null) {
-            // Bei einem bereits geladenen Produkt wird nur das Filialangebot ergänzt
             if (!existingType.equals(type)) {
                 context.errors().record("Produkt", "Produkttyp", type, source + ":" + asin, Errors.productTypeMismatch(existingType));
                 return;
             }
             loadOffer(source, branchId, asin, item);
-            loadSubtypeReferences(type, asin, item);
+            loadSubtypeReferences(type, asin, item, source, false);
             loadSupplementalData(asin, item);
             collectSimilarRefs(source, asin, item);
             return;
+        }
+
+        String bookIsbn = null;
+        if ("Buch".equals(type)) {
+            bookIsbn = validBookIsbn(source, asin, item);
+            if (bookIsbn == null) {
+                return;
+            }
         }
 
         String title = TextUtil.clean(XmlUtil.firstText(item, "title"));
@@ -84,33 +92,54 @@ public final class ShopXmlImporter extends Importer {
             ean = null;
         }
 
-        if (!context.products().insertProduct(asin, title, type, salesRank, picture, detailPage, ean, source, context.errors())) {
-            return;
+        Savepoint savepoint = context.database().connection().setSavepoint();
+        boolean subtypeInserted;
+        try {
+            if (!context.products().insertProduct(asin, title, type, salesRank, picture, detailPage, ean, source, context.errors())) {
+                context.database().connection().releaseSavepoint(savepoint);
+                return;
+            }
+
+            subtypeInserted = switch (type) {
+                case "Buch" -> loadBookBase(source, asin, item, bookIsbn);
+                case "Musik-CD" -> loadMusicBase(source, asin, item);
+                case "DVD" -> loadDvdBase(source, asin, item);
+                default -> throw new IllegalStateException("Nicht behandelter Produkttyp: " + type);
+            };
+            if (!subtypeInserted) {
+                context.database().connection().rollback(savepoint);
+                context.products().forgetProduct(asin);
+                return;
+            }
+            context.database().connection().releaseSavepoint(savepoint);
+        } catch (SQLException ex) {
+            context.database().connection().rollback(savepoint);
+            context.products().forgetProduct(asin);
+            throw ex;
         }
 
-        switch (type) {
-            case "Buch" -> loadBook(source, asin, item);
-            case "Musik-CD" -> loadMusic(source, asin, item);
-            case "DVD" -> loadDvd(source, asin, item);
-            default -> throw new IllegalStateException("Nicht behandelter Produkttyp: " + type);
-        }
-
+        loadSubtypeReferences(type, asin, item, source, true);
         loadOffer(source, branchId, asin, item);
         loadSupplementalData(asin, item);
         // Ähnliche Produkte werden gesammelt und erst nach allen Shop-Dateien gespeichert
         collectSimilarRefs(source, asin, item);
     }
 
-    private void loadBook(String source, String asin, Element item) throws SQLException {
+    private String validBookIsbn(String source, String asin, Element item) {
         Element spec = XmlUtil.firstChild(item, "bookspec");
         String rawIsbn = TextUtil.clean(XmlUtil.attr(XmlUtil.firstChild(spec, "isbn"), "val"));
         if (rawIsbn == null) {
             context.errors().record("Buch", "ISBN-Nummer", null, source + ":" + asin, Errors.ISBN_MISSING);
-            return;
+            return null;
         } else if (!Validation.validIsbn10(rawIsbn)) {
             context.errors().record("Buch", "ISBN-Nummer", rawIsbn, source + ":" + asin, Errors.ISBN_INVALID_FORMAT);
-            return;
+            return null;
         }
+        return rawIsbn;
+    }
+
+    private boolean loadBookBase(String source, String asin, Element item, String rawIsbn) throws SQLException {
+        Element spec = XmlUtil.firstChild(item, "bookspec");
         Integer pages = context.parser().positiveInt(XmlUtil.text(XmlUtil.firstChild(spec, "pages")), "Buch", "Seitenzahl", source + ":" + asin);
         LocalDate publication = context.parser().date(XmlUtil.attr(XmlUtil.firstChild(spec, "publication"), "date"), "Buch", "Erscheinungsdatum", source + ":" + asin);
         String binding = TextUtil.clean(XmlUtil.firstText(spec, "binding"));
@@ -120,14 +149,13 @@ public final class ShopXmlImporter extends Importer {
         BigDecimal packageHeight = context.parser().decimal(XmlUtil.attr(packageElement, "height"), "Buch", "Pakethoehe", source + ":" + asin);
         BigDecimal packageLength = context.parser().decimal(XmlUtil.attr(packageElement, "length"), "Buch", "Paketlaenge", source + ":" + asin);
 
-        boolean inserted = context.products().insertBook(
+        return context.products().insertBook(
                 asin, pages, publication, rawIsbn,
                 binding, edition, packageWeight, packageHeight, packageLength,
                 source, context.errors());
-        if (!inserted) {
-            return;
-        }
+    }
 
+    private void loadBookReferences(String source, String asin, Element item, boolean reportDuplicates) throws SQLException {
         loadBookPublishers(asin, item);
 
         List<String> authors = XmlUtil.valuesFromContainer(item, "authors", "author");
@@ -141,11 +169,11 @@ public final class ShopXmlImporter extends Importer {
         for (String author : authors) {
             int personId = context.references().personId(author);
             context.references().insertRole(personId, "Autor");
-            context.references().insertBookAuthor(asin, personId, author, source, context.errors());
+            context.references().insertBookAuthor(asin, personId, author, source, context.errors(), reportDuplicates);
         }
     }
 
-    private void loadMusic(String source, String asin, Element item) throws SQLException {
+    private boolean loadMusicBase(String source, String asin, Element item) throws SQLException {
         Element spec = XmlUtil.firstChild(item, "musicspec");
         LocalDate releaseDate = context.parser().date(
                 TextUtil.firstNonBlank(XmlUtil.firstText(spec, "releasedate"), XmlUtil.attr(XmlUtil.firstChild(spec, "releasedate"), "date")),
@@ -155,11 +183,10 @@ public final class ShopXmlImporter extends Importer {
         Integer discCount = context.parser().positiveInt(XmlUtil.firstText(spec, "num_discs"), "Musik-CD", "AnzahlDiscs", source + ":" + asin);
         String upc = TextUtil.clean(TextUtil.firstNonBlank(XmlUtil.firstText(spec, "upc"), XmlUtil.attr(XmlUtil.firstChild(spec, "upc"), "val")));
 
-        boolean inserted = context.products().insertMusicCd(asin, releaseDate, binding, format, discCount, upc, source, context.errors());
-        if (!inserted) {
-            return;
-        }
+        return context.products().insertMusicCd(asin, releaseDate, binding, format, discCount, upc, source, context.errors());
+    }
 
+    private void loadMusicReferences(String source, String asin, Element item, boolean reportDuplicates) throws SQLException {
         loadMusicLabels(asin, item);
 
         List<String> artists = XmlUtil.valuesFromContainer(item, "artists", "artist");
@@ -173,7 +200,7 @@ public final class ShopXmlImporter extends Importer {
         for (String artist : artists) {
             int personId = context.references().personId(artist);
             context.references().insertRole(personId, "Künstler");
-            context.references().insertMusicArtist(asin, personId, artist, source, context.errors());
+            context.references().insertMusicArtist(asin, personId, artist, source, context.errors(), reportDuplicates);
         }
         List<String> tracks = XmlUtil.valuesFromContainer(item, "tracks", "title");
         if (tracks.isEmpty()) {
@@ -183,13 +210,13 @@ public final class ShopXmlImporter extends Importer {
         for (String track : tracks) {
             String name = TextUtil.clean(track);
             if (name != null) {
-                context.products().insertTrack(asin, trackNumber, name, source, context.errors());
+                context.products().insertTrack(asin, trackNumber, name, source, context.errors(), reportDuplicates);
                 trackNumber++;
             }
         }
     }
 
-    private void loadDvd(String source, String asin, Element item) throws SQLException {
+    private boolean loadDvdBase(String source, String asin, Element item) throws SQLException {
         Element spec = XmlUtil.firstChild(item, "dvdspec");
         String format = TextUtil.clean(TextUtil.firstNonBlank(XmlUtil.firstText(spec, "format"), XmlUtil.attr(XmlUtil.firstChild(spec, "format"), "value")));
         Integer runtime = context.parser().positiveInt(XmlUtil.firstText(spec, "runningtime"), "DVD", "Laufzeit", source + ":" + asin);
@@ -199,30 +226,31 @@ public final class ShopXmlImporter extends Importer {
         String theatricalRelease = TextUtil.clean(XmlUtil.firstText(spec, "theatr_release"));
         String upc = TextUtil.clean(TextUtil.firstNonBlank(XmlUtil.firstText(spec, "upc"), XmlUtil.attr(XmlUtil.firstChild(spec, "upc"), "val")));
 
-        context.products().insertDvd(asin, format, runtime, regionCode, releaseDate, aspectRatio, theatricalRelease, upc, source, context.errors());
+        return context.products().insertDvd(asin, format, runtime, regionCode, releaseDate, aspectRatio, theatricalRelease, upc, source, context.errors());
+    }
+
+    private void loadDvdReferences(String source, String asin, Element item, boolean reportDuplicates) throws SQLException {
         List<String> actors = XmlUtil.valuesFromContainer(item, "actors", "actor");
         List<String> creators = XmlUtil.valuesFromContainer(item, "creators", "creator");
         List<String> directors = XmlUtil.valuesFromContainer(item, "directors", "director");
-        insertPeopleByRole(source, actors, "Actor", asin);
-        insertPeopleByRole(source, creators, "Creator", asin);
-        insertPeopleByRole(source, directors, "Director", asin);
+        insertPeopleByRole(source, actors, "Actor", asin, reportDuplicates);
+        insertPeopleByRole(source, creators, "Creator", asin, reportDuplicates);
+        insertPeopleByRole(source, directors, "Director", asin, reportDuplicates);
     }
 
-    private void insertPeopleByRole(String source, List<String> names, String role, String productNumber) throws SQLException {
+    private void insertPeopleByRole(String source, List<String> names, String role, String productNumber, boolean reportDuplicates) throws SQLException {
         for (String name : names) {
             int personId = context.references().personId(name);
             context.references().insertRole(personId, role);
-            context.references().insertDvdParticipant(productNumber, personId, role, name, source, context.errors());
+            context.references().insertDvdParticipant(productNumber, personId, role, name, source, context.errors(), reportDuplicates);
         }
     }
 
-    private void loadSubtypeReferences(String type, String asin, Element item) throws SQLException {
+    private void loadSubtypeReferences(String type, String asin, Element item, String source, boolean reportDuplicates) throws SQLException {
         switch (type) {
-            case "Buch" -> loadBookPublishers(asin, item);
-            case "Musik-CD" -> loadMusicLabels(asin, item);
-            case "DVD" -> {
-                // DVDs haben keine ausgelagerte Verlags-/Label-Zuordnung.
-            }
+            case "Buch" -> loadBookReferences(source, asin, item, reportDuplicates);
+            case "Musik-CD" -> loadMusicReferences(source, asin, item, reportDuplicates);
+            case "DVD" -> loadDvdReferences(source, asin, item, reportDuplicates);
             default -> throw new IllegalStateException("Nicht behandelter Produkttyp: " + type);
         }
     }

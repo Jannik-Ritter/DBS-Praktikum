@@ -84,12 +84,16 @@ public final class ReferenceRepository {
     }
 
     public void insertBookAuthor(String asin, int personId, String author, String source, ErrorLog errors) throws SQLException {
+        insertBookAuthor(asin, personId, author, source, errors, true);
+    }
+
+    public void insertBookAuthor(String asin, int personId, String author, String source, ErrorLog errors, boolean reportDuplicate) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_BOOK_AUTHOR)) {
             statement.setString(1, asin);
             statement.setInt(2, personId);
 
             int changed = statement.executeUpdate();
-            if (changed == 0) {
+            if (changed == 0 && reportDuplicate) {
                 errors.record("Buchautoren", "BuchID/Autor", asin + "/" + author, source + ":" + asin, Errors.DUPLICATE_BOOK_AUTHOR);
             }
         }
@@ -105,12 +109,16 @@ public final class ReferenceRepository {
     }
 
     public void insertMusicArtist(String asin, int personId, String artist, String source, ErrorLog errors) throws SQLException {
+        insertMusicArtist(asin, personId, artist, source, errors, true);
+    }
+
+    public void insertMusicArtist(String asin, int personId, String artist, String source, ErrorLog errors, boolean reportDuplicate) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_MUSIC_ARTIST)) {
             statement.setString(1, asin);
             statement.setInt(2, personId);
 
             int changed = statement.executeUpdate();
-            if (changed == 0) {
+            if (changed == 0 && reportDuplicate) {
                 errors.record("Beteiligte Künstler", "Produktnummer/Künstler", asin + "/" + artist, source + ":" + asin, Errors.DUPLICATE_MUSIC_ARTIST);
             }
         }
@@ -142,13 +150,17 @@ public final class ReferenceRepository {
     }
 
     public void insertDvdParticipant(String asin, int personId, String role, String name, String source, ErrorLog errors) throws SQLException {
+        insertDvdParticipant(asin, personId, role, name, source, errors, true);
+    }
+
+    public void insertDvdParticipant(String asin, int personId, String role, String name, String source, ErrorLog errors, boolean reportDuplicate) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_DVD_PARTICIPANT)) {
             statement.setString(1, asin);
             statement.setInt(2, personId);
             statement.setString(3, role);
 
             int changed = statement.executeUpdate();
-            if (changed == 0) {
+            if (changed == 0 && reportDuplicate) {
                 errors.record("Beteiligte Personen", "Produktnummer/Person/Rolle", asin + "/" + name + "/" + role, source + ":" + asin, Errors.DUPLICATE_DVD_PARTICIPANT);
             }
         }

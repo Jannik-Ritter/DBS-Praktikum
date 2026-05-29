@@ -46,6 +46,10 @@ public final class ProductRepository {
         return productTypes.get(productNumber);
     }
 
+    public void forgetProduct(String productNumber) {
+        productTypes.remove(productNumber);
+    }
+
     public boolean insertProduct(
             String asin,
             String title,
@@ -148,7 +152,7 @@ public final class ProductRepository {
         }
     }
 
-    public void insertDvd(
+    public boolean insertDvd(
             String asin,
             String format,
             Integer runtimeMinutes,
@@ -173,18 +177,24 @@ public final class ProductRepository {
             int changed = statement.executeUpdate();
             if (changed == 0) {
                 errors.record("DVD", "Produktnummer", asin, source + ":" + asin, Errors.DUPLICATE_PRODUCT_SUBTYPE);
+                return false;
             }
+            return true;
         }
     }
 
     public void insertTrack(String asin, int trackNumber, String track, String source, ErrorLog errors) throws SQLException {
+        insertTrack(asin, trackNumber, track, source, errors, true);
+    }
+
+    public void insertTrack(String asin, int trackNumber, String track, String source, ErrorLog errors, boolean reportDuplicate) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_TRACK)) {
             statement.setString(1, asin);
             statement.setInt(2, trackNumber);
             statement.setString(3, track);
 
             int changed = statement.executeUpdate();
-            if (changed == 0) {
+            if (changed == 0 && reportDuplicate) {
                 errors.record("Lied", "Name", track, source + ":" + asin, Errors.DUPLICATE_TRACK);
             }
         }
