@@ -30,6 +30,7 @@ public record LoaderConfig(
         Map<String, String> parsed = parseArgs(args);
         Properties properties = loadProperties(parsed);
 
+        // Kann alles spezifiziert werden, sonst default
         Path dataDir = Path.of(value(parsed, properties, "--data-dir", "data.dir", DEFAULT_DATA_DIR));
         String schemaValue = value(parsed, properties, "--schema", "schema", DEFAULT_SCHEMA);
         Path schema = "none".equalsIgnoreCase(schemaValue) ? null : Path.of(schemaValue);
