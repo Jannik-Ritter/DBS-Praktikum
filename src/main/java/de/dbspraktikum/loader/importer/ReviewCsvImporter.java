@@ -42,7 +42,10 @@ public final class ReviewCsvImporter extends Importer {
         }
 
         Integer rating = context.parser().integer(row.value("rating"), "Kundenrezension", "Punkte", source);
-        if (rating == null || rating < 1 || rating > 5) {
+        if (rating == null) {
+            return;
+        }
+        if (rating < 1 || rating > 5) {
             context.errors().record("Kundenrezension", "Punkte", row.value("rating"), source, Errors.RATING_OUT_OF_RANGE);
             return;
         }

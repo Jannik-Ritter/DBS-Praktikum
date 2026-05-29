@@ -29,6 +29,12 @@ mvn -q -DskipTests exec:java \
   -Dexec.args="--schema src/dbs-schema.sql --data-dir data --rejects build/rejected-records.csv"
 ```
 
+Ein Skript um schnell den Container runterzufahren, neu hochzufahren und dann Daten zu laden:
+
+```bash
+./scripts/reset-and-load.sh
+```
+
 Die Datenbankverbindung kann über Umgebungsvariablen gesetzt werden:
 
 - `DB_URL`, Default `jdbc:postgresql://localhost:5432/postgres`

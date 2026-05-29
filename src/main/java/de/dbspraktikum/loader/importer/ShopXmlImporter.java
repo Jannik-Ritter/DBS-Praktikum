@@ -100,20 +100,18 @@ public final class ShopXmlImporter extends Importer {
     private void loadBook(String source, String asin, Element item) throws SQLException {
         Element spec = XmlUtil.firstChild(item, "bookspec");
         String rawIsbn = TextUtil.clean(XmlUtil.attr(XmlUtil.firstChild(spec, "isbn"), "val"));
-        String isbn = rawIsbn;
-        // Fehlende oder ungültige ISBN wird durch die ASIN ersetzt
         if (rawIsbn == null) {
             context.errors().record("Buch", "ISBN-Nummer", null, source + ":" + asin, Errors.ISBN_MISSING);
-            isbn = asin;
+            return;
         } else if (!Validation.validIsbn10(rawIsbn)) {
             context.errors().record("Buch", "ISBN-Nummer", rawIsbn, source + ":" + asin, Errors.ISBN_INVALID_FORMAT);
-            isbn = asin;
+            return;
         }
         Integer pages = context.parser().positiveInt(XmlUtil.text(XmlUtil.firstChild(spec, "pages")), "Buch", "Seitenzahl", source + ":" + asin);
         LocalDate publication = context.parser().date(XmlUtil.attr(XmlUtil.firstChild(spec, "publication"), "date"), "Buch", "Erscheinungsdatum", source + ":" + asin);
         Integer publisherId = firstIdFromContainer(item, "publishers", "publisher", "Verlag");
 
-        context.products().insertBook(asin, pages, publication, isbn, publisherId, source, context.errors());
+        context.products().insertBook(asin, pages, publication, rawIsbn, publisherId, source, context.errors());
 
         List<String> authors = XmlUtil.valuesFromContainer(item, "authors", "author");
         if (authors.isEmpty()) {

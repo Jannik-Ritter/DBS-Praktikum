@@ -134,6 +134,11 @@ public final class Sql {
             ORDER BY p."Produktnummer"
             """;
 
+    public static final String DELETE_PRODUCT_BY_NUMBER = """
+            DELETE FROM "Produkt"
+            WHERE "Produktnummer" = ?
+            """;
+
     public static final String INSERT_REVIEW = """
             INSERT INTO "Kundenrezension" ("KundeID", "Produktnummer", "Rezensionsdatum", "Helpful", "Summary", "Text", "Punkte")
             VALUES (?, ?, ?, ?, ?, ?, ?)

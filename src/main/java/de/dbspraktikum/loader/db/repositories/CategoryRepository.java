@@ -52,12 +52,15 @@ public final class CategoryRepository {
         }
     }
 
-    public void recordProductsWithoutCategory(String source, ErrorLog errors) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement(Sql.SELECT_PRODUCTS_WITHOUT_CATEGORY);
-             ResultSet rs = statement.executeQuery()) {
+    public void rejectProductsWithoutCategory(String source, ErrorLog errors) throws SQLException {
+        try (PreparedStatement select = connection.prepareStatement(Sql.SELECT_PRODUCTS_WITHOUT_CATEGORY);
+             PreparedStatement delete = connection.prepareStatement(Sql.DELETE_PRODUCT_BY_NUMBER);
+             ResultSet rs = select.executeQuery()) {
             while (rs.next()) {
                 String asin = rs.getString(1);
                 errors.record("Produktkategorien", "Kategorie", asin, source + ":" + asin, Errors.PRODUCT_CATEGORY_MISSING);
+                delete.setString(1, asin);
+                delete.executeUpdate();
             }
         }
     }

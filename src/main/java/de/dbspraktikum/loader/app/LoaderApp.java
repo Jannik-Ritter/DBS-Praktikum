@@ -48,7 +48,8 @@ public final class LoaderApp {
 
         // Kategorien importieren (nach dem Rest, weil die Verweise auf Produkte enthalten)
         new CategoryXmlImporter(context).importFile(config.dataDir().resolve("categories.xml"));
-        context.categories().recordProductsWithoutCategory("categories.xml", context.errors());
+        context.categories().rejectProductsWithoutCategory("categories.xml", context.errors());
+        context.products().loadExistingProducts();
 
         // Ratings importieren
         new ReviewCsvImporter(context).importFile(config.dataDir().resolve("reviews.csv"));

@@ -16,7 +16,6 @@ public final class Errors {
     public static final String DUPLICATE_REVIEW = "Doppelte Rezension"; // Ein Nutzer kann nur maximal eine Rezension pro Produkt abgeben
     public static final String DUPLICATE_PRODUCT_SUBTYPE = "Doppelter Produkttyp-Datensatz";
     public static final String DUPLICATE_TRACK = "Doppeltes Lied";
-    public static final String DUPLICATE_PRODUCT_SIMILARITY = "Doppelte Produktaehnlichkeit";
     public static final String DUPLICATE_PRODUCT_CATEGORY = "Doppelte Produktkategorie";
     public static final String DUPLICATE_BOOK_AUTHOR = "Doppelte Buchautor-Zuordnung";
     public static final String DUPLICATE_MUSIC_ARTIST = "Doppelte Musik-Kuenstler-Zuordnung";

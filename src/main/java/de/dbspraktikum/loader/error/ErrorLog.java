@@ -36,7 +36,7 @@ public final class ErrorLog implements AutoCloseable {
     }
 
     public void record(LoadError error) {
-        counts.merge(error.key(), 1, Integer::sum);
+        counts.merge(error.message(), 1, Integer::sum);
         
         try {
             writer.write(CsvUtil.formatRow(
