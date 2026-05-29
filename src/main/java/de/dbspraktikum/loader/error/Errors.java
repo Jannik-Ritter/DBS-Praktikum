@@ -23,6 +23,7 @@ public final class Errors {
 
     // Datentypen müssen eingehalten werden bzw. bedürfen einer Konvertierung
     public static final String VALUE_NOT_INTEGER = "Wert ist keine ganze Zahl";
+    public static final String VALUE_NOT_NUMBER = "Wert ist keine gueltige Zahl";
     public static final String PRICE_NOT_VALID_NUMBER = "Preis ist keine gueltige Zahl";
 
     // NULL-Werte erkennen/beachten 

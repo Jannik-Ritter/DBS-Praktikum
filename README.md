@@ -25,7 +25,7 @@ docker compose --profile tools run --rm loader
 Alternativ lokal mit Maven:
 
 ```bash
-mvn -q -DskipTests exec:java \
+mvn -q -DskipTests compile exec:java \
   -Dexec.args="--schema src/dbs-schema.sql --data-dir data --rejects build/rejected-records.csv"
 ```
 

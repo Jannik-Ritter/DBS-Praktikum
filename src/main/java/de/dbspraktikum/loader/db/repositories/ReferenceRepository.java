@@ -17,6 +17,8 @@ public final class ReferenceRepository {
     private final Connection connection;
     private final Map<String, Integer> publishers = new HashMap<>();
     private final Map<String, Integer> labels = new HashMap<>();
+    private final Map<String, Integer> studios = new HashMap<>();
+    private final Map<String, Integer> listmaniaLists = new HashMap<>();
     private final Map<String, Integer> persons = new HashMap<>();
     private final Map<String, Integer> customers = new HashMap<>();
 
@@ -48,6 +50,14 @@ public final class ReferenceRepository {
 
     public int labelId(String name) throws SQLException {
         return lookupId(labels, name, Sql.UPSERT_LABEL);
+    }
+
+    public int studioId(String name) throws SQLException {
+        return lookupId(studios, name, Sql.UPSERT_STUDIO);
+    }
+
+    public int listmaniaId(String name) throws SQLException {
+        return lookupId(listmaniaLists, name, Sql.UPSERT_LISTMANIA);
     }
 
     public int personId(String name) throws SQLException {
@@ -94,6 +104,22 @@ public final class ReferenceRepository {
             if (changed == 0) {
                 errors.record("Beteiligte Künstler", "Produktnummer/Künstler", asin + "/" + artist, source + ":" + asin, Errors.DUPLICATE_MUSIC_ARTIST);
             }
+        }
+    }
+
+    public void insertProductStudio(String asin, int studioId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_PRODUCT_STUDIO)) {
+            statement.setString(1, asin);
+            statement.setInt(2, studioId);
+            statement.executeUpdate();
+        }
+    }
+
+    public void insertProductListmania(String asin, int listmaniaId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_PRODUCT_LISTMANIA)) {
+            statement.setString(1, asin);
+            statement.setInt(2, listmaniaId);
+            statement.executeUpdate();
         }
     }
 

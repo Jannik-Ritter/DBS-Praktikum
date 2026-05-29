@@ -62,6 +62,8 @@ public final class ShopXmlImporter extends Importer {
                 return;
             }
             loadOffer(source, branchId, asin, item);
+            loadSupplementalData(asin, item);
+            collectSimilarRefs(source, asin, item);
             return;
         }
 
@@ -93,6 +95,7 @@ public final class ShopXmlImporter extends Importer {
         }
 
         loadOffer(source, branchId, asin, item);
+        loadSupplementalData(asin, item);
         // Ähnliche Produkte werden gesammelt und erst nach allen Shop-Dateien gespeichert
         collectSimilarRefs(source, asin, item);
     }
@@ -110,8 +113,17 @@ public final class ShopXmlImporter extends Importer {
         Integer pages = context.parser().positiveInt(XmlUtil.text(XmlUtil.firstChild(spec, "pages")), "Buch", "Seitenzahl", source + ":" + asin);
         LocalDate publication = context.parser().date(XmlUtil.attr(XmlUtil.firstChild(spec, "publication"), "date"), "Buch", "Erscheinungsdatum", source + ":" + asin);
         Integer publisherId = firstIdFromContainer(item, "publishers", "publisher", "Verlag");
+        String binding = TextUtil.clean(XmlUtil.firstText(spec, "binding"));
+        String edition = TextUtil.clean(XmlUtil.attr(XmlUtil.firstChild(spec, "edition"), "val"));
+        Element packageElement = XmlUtil.firstChild(spec, "package");
+        BigDecimal packageWeight = context.parser().decimal(XmlUtil.attr(packageElement, "weight"), "Buch", "Paketgewicht", source + ":" + asin);
+        BigDecimal packageHeight = context.parser().decimal(XmlUtil.attr(packageElement, "height"), "Buch", "Pakethoehe", source + ":" + asin);
+        BigDecimal packageLength = context.parser().decimal(XmlUtil.attr(packageElement, "length"), "Buch", "Paketlaenge", source + ":" + asin);
 
-        context.products().insertBook(asin, pages, publication, rawIsbn, publisherId, source, context.errors());
+        context.products().insertBook(
+                asin, pages, publication, rawIsbn, publisherId,
+                binding, edition, packageWeight, packageHeight, packageLength,
+                source, context.errors());
 
         List<String> authors = XmlUtil.valuesFromContainer(item, "authors", "author");
         if (authors.isEmpty()) {
@@ -134,8 +146,12 @@ public final class ShopXmlImporter extends Importer {
                 TextUtil.firstNonBlank(XmlUtil.firstText(spec, "releasedate"), XmlUtil.attr(XmlUtil.firstChild(spec, "releasedate"), "date")),
                 "Musik-CD", "Erscheinungsdatum", source + ":" + asin);
         Integer labelId = firstIdFromContainer(item, "labels", "label", "Label");
+        String binding = TextUtil.clean(XmlUtil.firstText(spec, "binding"));
+        String format = TextUtil.clean(TextUtil.firstNonBlank(XmlUtil.firstText(spec, "format"), XmlUtil.attr(XmlUtil.firstChild(spec, "format"), "value")));
+        Integer discCount = context.parser().positiveInt(XmlUtil.firstText(spec, "num_discs"), "Musik-CD", "AnzahlDiscs", source + ":" + asin);
+        String upc = TextUtil.clean(TextUtil.firstNonBlank(XmlUtil.firstText(spec, "upc"), XmlUtil.attr(XmlUtil.firstChild(spec, "upc"), "val")));
 
-        context.products().insertMusicCd(asin, labelId, releaseDate, source, context.errors());
+        context.products().insertMusicCd(asin, labelId, releaseDate, binding, format, discCount, upc, source, context.errors());
 
         List<String> artists = XmlUtil.valuesFromContainer(item, "artists", "artist");
         if (artists.isEmpty()) {
@@ -168,8 +184,11 @@ public final class ShopXmlImporter extends Importer {
         Integer runtime = context.parser().positiveInt(XmlUtil.firstText(spec, "runningtime"), "DVD", "Laufzeit", source + ":" + asin);
         Integer regionCode = context.parser().nonNegativeInt(XmlUtil.firstText(spec, "regioncode"), "DVD", "Region Code", source + ":" + asin);
         LocalDate releaseDate = context.parser().date(XmlUtil.firstText(spec, "releasedate"), "DVD", "Erscheinungsdatum", source + ":" + asin);
+        String aspectRatio = TextUtil.clean(XmlUtil.firstText(spec, "aspectratio"));
+        String theatricalRelease = TextUtil.clean(XmlUtil.firstText(spec, "theatr_release"));
+        String upc = TextUtil.clean(TextUtil.firstNonBlank(XmlUtil.firstText(spec, "upc"), XmlUtil.attr(XmlUtil.firstChild(spec, "upc"), "val")));
 
-        context.products().insertDvd(asin, format, runtime, regionCode, releaseDate, source, context.errors());
+        context.products().insertDvd(asin, format, runtime, regionCode, releaseDate, aspectRatio, theatricalRelease, upc, source, context.errors());
         List<String> actors = XmlUtil.valuesFromContainer(item, "actors", "actor");
         List<String> creators = XmlUtil.valuesFromContainer(item, "creators", "creator");
         List<String> directors = XmlUtil.valuesFromContainer(item, "directors", "director");
@@ -214,6 +233,27 @@ public final class ShopXmlImporter extends Importer {
         context.offers().upsertOffer(branchId, asin, state, priceValue, currency);
     }
 
+    private void loadSupplementalData(String asin, Element item) throws SQLException {
+        for (String studio : XmlUtil.valuesFromContainer(item, "studios", "studio")) {
+            int studioId = context.references().studioId(studio);
+            context.references().insertProductStudio(asin, studioId);
+        }
+
+        for (String list : XmlUtil.valuesFromContainer(item, "listmania", "list")) {
+            int listmaniaId = context.references().listmaniaId(list);
+            context.references().insertProductListmania(asin, listmaniaId);
+        }
+
+        Element audioText = XmlUtil.firstChild(item, "audiotext");
+        String audioFormat = TextUtil.clean(XmlUtil.firstText(audioText, "audioformat"));
+        for (Element language : XmlUtil.children(audioText, "language")) {
+            String value = TextUtil.clean(XmlUtil.text(language));
+            if (value != null) {
+                context.products().insertAudio(asin, value, TextUtil.clean(language.getAttribute("type")), audioFormat);
+            }
+        }
+    }
+
     private void collectSimilarRefs(String source, String asin, Element item) {
         Element similars = XmlUtil.firstChild(item, "similars");
         if (similars == null) {
@@ -222,8 +262,9 @@ public final class ShopXmlImporter extends Importer {
 
         for (Element similar : XmlUtil.children(similars)) {
             String ref = Validation.normalizeAsin(TextUtil.firstNonBlank(similar.getAttribute("asin"), XmlUtil.firstText(similar, "asin")));
+            String title = TextUtil.clean(TextUtil.firstNonBlank(similar.getAttribute("title"), XmlUtil.firstText(similar, "title"), XmlUtil.directText(similar)));
             if (ref != null) {
-                context.similarRefs().add(new SimilarRef(asin, ref, source));
+                context.similarRefs().add(new SimilarRef(asin, ref, title, source));
             }
         }
     }

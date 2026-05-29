@@ -50,6 +50,19 @@ public final class ValueParser {
         }
     }
 
+    public BigDecimal decimal(String raw, String entity, String attribute, String source) {
+        String cleaned = TextUtil.clean(raw);
+        if (cleaned == null) {
+            return null;
+        }
+        try {
+            return new BigDecimal(cleaned);
+        } catch (NumberFormatException ex) {
+            errors.record(entity, attribute, raw, source, Errors.VALUE_NOT_NUMBER);
+            return null;
+        }
+    }
+
     public LocalDate date(String raw, String entity, String attribute, String source) {
         String cleaned = TextUtil.clean(raw);
         if (cleaned == null) {

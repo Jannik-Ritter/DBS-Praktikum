@@ -7,6 +7,7 @@ import de.dbspraktikum.loader.model.SimilarRef;
 import de.dbspraktikum.loader.parse.JdbcUtil;
 import de.dbspraktikum.loader.validation.Validation;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -93,6 +94,11 @@ public final class ProductRepository {
             LocalDate publication,
             String isbn,
             Integer publisherId,
+            String binding,
+            String edition,
+            BigDecimal packageWeight,
+            BigDecimal packageHeight,
+            BigDecimal packageLength,
             String source,
             ErrorLog errors
     ) throws SQLException {
@@ -102,6 +108,11 @@ public final class ProductRepository {
             JdbcUtil.setDate(statement, 3, publication);
             statement.setString(4, isbn);
             JdbcUtil.setInteger(statement, 5, publisherId);
+            statement.setString(6, binding);
+            statement.setString(7, edition);
+            JdbcUtil.setBigDecimal(statement, 8, packageWeight);
+            JdbcUtil.setBigDecimal(statement, 9, packageHeight);
+            JdbcUtil.setBigDecimal(statement, 10, packageLength);
 
             int changed = statement.executeUpdate();
             if (changed == 0) {
@@ -110,11 +121,25 @@ public final class ProductRepository {
         }
     }
 
-    public void insertMusicCd(String asin, Integer labelId, LocalDate releaseDate, String source, ErrorLog errors) throws SQLException {
+    public void insertMusicCd(
+            String asin,
+            Integer labelId,
+            LocalDate releaseDate,
+            String binding,
+            String format,
+            Integer discCount,
+            String upc,
+            String source,
+            ErrorLog errors
+    ) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_MUSIC_CD)) {
             statement.setString(1, asin);
             JdbcUtil.setInteger(statement, 2, labelId);
             JdbcUtil.setDate(statement, 3, releaseDate);
+            statement.setString(4, binding);
+            statement.setString(5, format);
+            JdbcUtil.setInteger(statement, 6, discCount);
+            statement.setString(7, upc);
 
             int changed = statement.executeUpdate();
             if (changed == 0) {
@@ -129,6 +154,9 @@ public final class ProductRepository {
             Integer runtimeMinutes,
             Integer regionCode,
             LocalDate releaseDate,
+            String aspectRatio,
+            String theatricalRelease,
+            String upc,
             String source,
             ErrorLog errors
     ) throws SQLException {
@@ -138,6 +166,9 @@ public final class ProductRepository {
             statement.setString(3, runtimeMinutes == null ? null : runtimeMinutes + " minutes");
             JdbcUtil.setInteger(statement, 4, regionCode);
             JdbcUtil.setDate(statement, 5, releaseDate);
+            statement.setString(6, aspectRatio);
+            statement.setString(7, theatricalRelease);
+            statement.setString(8, upc);
 
             int changed = statement.executeUpdate();
             if (changed == 0) {
@@ -155,6 +186,16 @@ public final class ProductRepository {
             if (changed == 0) {
                 errors.record("Lied", "Name", track, source + ":" + asin, Errors.DUPLICATE_TRACK);
             }
+        }
+    }
+
+    public void insertAudio(String asin, String language, String languageType, String audioFormat) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_PRODUCT_AUDIO)) {
+            statement.setString(1, asin);
+            statement.setString(2, language);
+            statement.setString(3, languageType);
+            statement.setString(4, audioFormat);
+            statement.executeUpdate();
         }
     }
 
@@ -178,6 +219,7 @@ public final class ProductRepository {
                 String second = ref.sourceProduct().compareTo(ref.similarProduct()) < 0 ? ref.similarProduct() : ref.sourceProduct();
                 statement.setString(1, first);
                 statement.setString(2, second);
+                statement.setString(3, ref.similarTitle());
                 statement.executeUpdate();
             }
         }

@@ -34,7 +34,7 @@ services:
       - .:/workspace
       - maven-cache:/root/.m2
     command: >
-      mvn -q -DskipTests exec:java
+      mvn -q -DskipTests compile exec:java
       -Dexec.args="--schema src/dbs-schema.sql --data-dir data --rejects build/rejected-records.csv"
 
 volumes:

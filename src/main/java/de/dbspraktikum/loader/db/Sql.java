@@ -34,20 +34,26 @@ public final class Sql {
             """;
 
     public static final String INSERT_BOOK = """
-            INSERT INTO "Buch" ("Produktnummer", "Seitenzahl", "Erscheinungsdatum", "ISBN-Nummer", "VerlagID")
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO "Buch" (
+                "Produktnummer", "Seitenzahl", "Erscheinungsdatum", "ISBN-Nummer", "VerlagID",
+                "Bindung", "Auflage", "Paketgewicht", "Pakethoehe", "Paketlaenge"
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT ("Produktnummer") DO NOTHING
             """;
 
     public static final String INSERT_MUSIC_CD = """
-            INSERT INTO "Musik-CD" ("Produktnummer", "LabelID", "Erscheinungsdatum")
-            VALUES (?, ?, ?)
+            INSERT INTO "Musik-CD" ("Produktnummer", "LabelID", "Erscheinungsdatum", "Bindung", "Format", "AnzahlDiscs", "UPC")
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT ("Produktnummer") DO NOTHING
             """;
 
     public static final String INSERT_DVD = """
-            INSERT INTO "DVD" ("Produktnummer", "Format", "Laufzeit", "Region Code", "Erscheinungsdatum")
-            VALUES (?, ?, CAST(? AS INTERVAL), ?, ?)
+            INSERT INTO "DVD" (
+                "Produktnummer", "Format", "Laufzeit", "Region Code", "Erscheinungsdatum",
+                "AspectRatio", "TheatricalRelease", "UPC"
+            )
+            VALUES (?, ?, CAST(? AS INTERVAL), ?, ?, ?, ?, ?)
             ON CONFLICT ("Produktnummer") DO NOTHING
             """;
 
@@ -58,8 +64,15 @@ public final class Sql {
             """;
 
     public static final String INSERT_PRODUCT_SIMILARITY = """
-            INSERT INTO "Produktähnlichkeit" ("Produktnummer1", "Produktnummer2")
-            VALUES (?, ?)
+            INSERT INTO "Produktähnlichkeit" ("Produktnummer1", "Produktnummer2", "ÄhnlicherTitel")
+            VALUES (?, ?, ?)
+            ON CONFLICT ("Produktnummer1", "Produktnummer2") DO UPDATE
+            SET "ÄhnlicherTitel" = COALESCE("Produktähnlichkeit"."ÄhnlicherTitel", EXCLUDED."ÄhnlicherTitel")
+            """;
+
+    public static final String INSERT_PRODUCT_AUDIO = """
+            INSERT INTO "Produktaudio" ("Produktnummer", "Sprache", "Sprachtyp", "Audioformat")
+            VALUES (?, ?, COALESCE(?, ''), COALESCE(?, ''))
             ON CONFLICT DO NOTHING
             """;
 
@@ -83,6 +96,8 @@ public final class Sql {
 
     public static final String UPSERT_PUBLISHER = upsertByName("Verlag", "Verlagname", "VerlagID");
     public static final String UPSERT_LABEL = upsertByName("Label", "Labelname", "LabelID");
+    public static final String UPSERT_STUDIO = upsertByName("Studio", "Studioname", "StudioID");
+    public static final String UPSERT_LISTMANIA = upsertByName("ListmaniaListe", "Name", "ListmaniaID");
     public static final String UPSERT_PERSON = upsertByName("Person", "Name", "PersonID");
     public static final String UPSERT_CUSTOMER = upsertByName("Kunde", "Name", "KundeID");
 
@@ -100,6 +115,18 @@ public final class Sql {
 
     public static final String INSERT_MUSIC_ARTIST = """
             INSERT INTO "Beteiligte Künstler" ("Produktnummer", "KünstlerID")
+            VALUES (?, ?)
+            ON CONFLICT DO NOTHING
+            """;
+
+    public static final String INSERT_PRODUCT_STUDIO = """
+            INSERT INTO "Produktstudios" ("Produktnummer", "StudioID")
+            VALUES (?, ?)
+            ON CONFLICT DO NOTHING
+            """;
+
+    public static final String INSERT_PRODUCT_LISTMANIA = """
+            INSERT INTO "ProduktListmania" ("Produktnummer", "ListmaniaID")
             VALUES (?, ?)
             ON CONFLICT DO NOTHING
             """;
@@ -151,11 +178,27 @@ public final class Sql {
 
     private static String upsertByName(String table, String nameColumn, String idColumn) {
         return """
-                INSERT INTO "%s" ("%s")
-                VALUES (?)
-                ON CONFLICT ("%s") DO UPDATE SET "%s" = EXCLUDED."%s"
-                RETURNING "%s"
-                """.formatted(table, nameColumn, nameColumn, nameColumn, nameColumn, idColumn);
+                WITH input AS (
+                    SELECT ?::varchar AS "%2$s"
+                ),
+                existing AS (
+                    SELECT t."%3$s"
+                    FROM "%1$s" t
+                    JOIN input i ON t."%2$s" = i."%2$s"
+                    LIMIT 1
+                ),
+                inserted AS (
+                    INSERT INTO "%1$s" ("%2$s")
+                    SELECT "%2$s"
+                    FROM input
+                    WHERE NOT EXISTS (SELECT 1 FROM existing)
+                    RETURNING "%3$s"
+                )
+                SELECT "%3$s" FROM existing
+                UNION ALL
+                SELECT "%3$s" FROM inserted
+                LIMIT 1
+                """.formatted(table, nameColumn, idColumn);
     }
 
     private static String insertPersonRole(String roleTable) {
