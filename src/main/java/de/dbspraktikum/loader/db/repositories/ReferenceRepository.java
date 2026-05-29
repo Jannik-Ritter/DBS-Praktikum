@@ -34,6 +34,7 @@ public final class ReferenceRepository {
             statement.setString(1, branchName);
             statement.setString(2, address);
             statement.setString(3, branchName);
+
             try (ResultSet rs = statement.executeQuery()) {
                 rs.next();
                 return rs.getInt(1);
@@ -76,6 +77,7 @@ public final class ReferenceRepository {
         try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_BOOK_AUTHOR)) {
             statement.setString(1, asin);
             statement.setInt(2, personId);
+
             int changed = statement.executeUpdate();
             if (changed == 0) {
                 errors.record("Buchautoren", "BuchID/Autor", asin + "/" + author, source + ":" + asin, Errors.DUPLICATE_BOOK_AUTHOR);
@@ -87,6 +89,7 @@ public final class ReferenceRepository {
         try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_MUSIC_ARTIST)) {
             statement.setString(1, asin);
             statement.setInt(2, personId);
+
             int changed = statement.executeUpdate();
             if (changed == 0) {
                 errors.record("Beteiligte Künstler", "Produktnummer/Künstler", asin + "/" + artist, source + ":" + asin, Errors.DUPLICATE_MUSIC_ARTIST);
@@ -99,6 +102,7 @@ public final class ReferenceRepository {
             statement.setString(1, asin);
             statement.setInt(2, personId);
             statement.setString(3, role);
+
             int changed = statement.executeUpdate();
             if (changed == 0) {
                 errors.record("Beteiligte Personen", "Produktnummer/Person/Rolle", asin + "/" + name + "/" + role, source + ":" + asin, Errors.DUPLICATE_DVD_PARTICIPANT);

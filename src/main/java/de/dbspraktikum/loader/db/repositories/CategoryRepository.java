@@ -44,6 +44,7 @@ public final class CategoryRepository {
         try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_PRODUCT_CATEGORY)) {
             statement.setString(1, asin);
             statement.setInt(2, categoryId);
+
             int changed = statement.executeUpdate();
             if (changed == 0) {
                 errors.record("Produktkategorien", "Produktnummer/Kategorie", asin + "/" + categoryPath, source, Errors.DUPLICATE_PRODUCT_CATEGORY);

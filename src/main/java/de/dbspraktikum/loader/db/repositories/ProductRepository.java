@@ -28,6 +28,7 @@ public final class ProductRepository {
 
     public void loadExistingProducts() throws SQLException {
         productTypes.clear();
+
         try (Statement statement = connection.createStatement();
              ResultSet rs = statement.executeQuery(Sql.SELECT_PRODUCT_TYPES)) {
             while (rs.next()) {
@@ -76,10 +77,12 @@ public final class ProductRepository {
             statement.executeUpdate();
             connection.releaseSavepoint(savepoint);
             productTypes.put(asin, type);
+
             return true;
         } catch (SQLException ex) {
             connection.rollback(savepoint);
             errors.record("Produkt", "Produktnummer", asin, source + ":" + asin, ex.getMessage());
+
             return false;
         }
     }
@@ -99,6 +102,7 @@ public final class ProductRepository {
             JdbcUtil.setDate(statement, 3, publication);
             statement.setString(4, isbn);
             JdbcUtil.setInteger(statement, 5, publisherId);
+
             int changed = statement.executeUpdate();
             if (changed == 0) {
                 errors.record("Buch", "Produktnummer", asin, source + ":" + asin, Errors.DUPLICATE_PRODUCT_SUBTYPE);
@@ -111,6 +115,7 @@ public final class ProductRepository {
             statement.setString(1, asin);
             JdbcUtil.setInteger(statement, 2, labelId);
             JdbcUtil.setDate(statement, 3, releaseDate);
+
             int changed = statement.executeUpdate();
             if (changed == 0) {
                 errors.record("Musik-CD", "Produktnummer", asin, source + ":" + asin, Errors.DUPLICATE_PRODUCT_SUBTYPE);
@@ -133,6 +138,7 @@ public final class ProductRepository {
             statement.setString(3, runtimeMinutes == null ? null : runtimeMinutes + " minutes");
             JdbcUtil.setInteger(statement, 4, regionCode);
             JdbcUtil.setDate(statement, 5, releaseDate);
+
             int changed = statement.executeUpdate();
             if (changed == 0) {
                 errors.record("DVD", "Produktnummer", asin, source + ":" + asin, Errors.DUPLICATE_PRODUCT_SUBTYPE);
@@ -144,6 +150,7 @@ public final class ProductRepository {
         try (PreparedStatement statement = connection.prepareStatement(Sql.INSERT_TRACK)) {
             statement.setString(1, asin);
             statement.setString(2, track);
+
             int changed = statement.executeUpdate();
             if (changed == 0) {
                 errors.record("Lied", "Name", track, source + ":" + asin, Errors.DUPLICATE_TRACK);

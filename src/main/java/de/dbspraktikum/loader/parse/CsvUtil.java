@@ -20,6 +20,7 @@ public final class CsvUtil {
         if (line == null) {
             return List.of();
         }
+
         List<String> values = new ArrayList<>();
         StringBuilder current = new StringBuilder();
         boolean inQuotes = false;
@@ -40,6 +41,7 @@ public final class CsvUtil {
             }
         }
         values.add(current.toString());
+
         return values;
     }
 

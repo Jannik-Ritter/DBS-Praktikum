@@ -36,15 +36,21 @@ public final class LoaderApp {
     }
 
     private void runImport(ImportContext context) throws Exception {
+        // Produkt-Cache aus existierenden Produkten aufbauen
         context.products().loadExistingProducts();
 
+        // Filialdaten importieren
         ShopXmlImporter shopImporter = new ShopXmlImporter(context);
         shopImporter.importFile(config.dataDir().resolve("dresden.xml"));
         shopImporter.importFile(config.dataDir().resolve("leipzig_transformed.xml"));
+        // Ähnlichkeiten aufbauen
         context.products().insertSimilarRefs(context.similarRefs(), context.errors());
 
+        // Kategorien importieren (nach dem Rest, weil die Verweise auf Produkte enthalten)
         new CategoryXmlImporter(context).importFile(config.dataDir().resolve("categories.xml"));
         context.categories().recordProductsWithoutCategory("categories.xml", context.errors());
+
+        // Ratings importieren
         new ReviewCsvImporter(context).importFile(config.dataDir().resolve("reviews.csv"));
         context.database().refreshAllRatings();
     }
