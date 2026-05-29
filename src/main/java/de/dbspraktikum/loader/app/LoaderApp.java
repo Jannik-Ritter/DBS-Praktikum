@@ -53,7 +53,6 @@ public final class LoaderApp {
 
         // Ratings importieren
         new ReviewCsvImporter(context).importFile(config.dataDir().resolve("reviews.csv"));
-        context.database().refreshAllRatings();
     }
 
     private static void printSummary(Database database, ErrorLog errors) throws SQLException {

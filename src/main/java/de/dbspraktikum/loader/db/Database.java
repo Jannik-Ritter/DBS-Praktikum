@@ -62,12 +62,6 @@ public final class Database implements AutoCloseable {
         connection.commit();
     }
 
-    public void refreshAllRatings() throws SQLException {
-        try (Statement statement = connection.createStatement()) {
-            statement.executeUpdate(Sql.REFRESH_ALL_RATINGS);
-        }
-    }
-
     public long countProducts() throws SQLException {
         return count(Sql.COUNT_PRODUCTS);
     }

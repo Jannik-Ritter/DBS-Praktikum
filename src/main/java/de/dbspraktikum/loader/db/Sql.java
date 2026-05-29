@@ -9,15 +9,6 @@ public final class Sql {
     public static final String COUNT_CATEGORIES = countTable("Kategorie");
     public static final String COUNT_LOAD_ERRORS = countTable("Ladefehler");
 
-    public static final String REFRESH_ALL_RATINGS = """
-            UPDATE "Produkt" p
-            SET "Rating" = COALESCE((
-                SELECT round(avg(k."Punkte")::numeric, 2)
-                FROM "Kundenrezension" k
-                WHERE k."Produktnummer" = p."Produktnummer"
-            ), 0.00)
-            """;
-
     public static final String INSERT_LOAD_ERROR = """
             INSERT INTO "Ladefehler" ("Entity", "Attribut", "Rohwert", "Quelle", "Meldung")
             VALUES (?, ?, ?, ?, ?)

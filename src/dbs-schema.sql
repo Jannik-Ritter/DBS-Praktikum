@@ -1,6 +1,7 @@
 -- Alte Objekte löschen
 DROP VIEW IF EXISTS "ÄhnlicheProdukteBidirektional" CASCADE;
 DROP VIEW IF EXISTS "ProduktDurchschnittsRating" CASCADE;
+DROP FUNCTION IF EXISTS "aktualisiere_produkt_rating"() CASCADE;
 DROP TABLE IF EXISTS "Ladefehler" CASCADE;
 DROP TABLE IF EXISTS "Kundenrezension" CASCADE;
 DROP TABLE IF EXISTS "Kaufposition" CASCADE;
@@ -80,7 +81,6 @@ CREATE TABLE "Künstler" (
 CREATE TABLE "Produkt" (
     "Produktnummer" VARCHAR(20) PRIMARY KEY,
     "Titel" TEXT NOT NULL,
-    "Rating" NUMERIC(3, 2) NOT NULL DEFAULT 0.00,
     -- Könnte man noch unique machen, aber das wäre evtl. zu streng
     "Verkaufsrang" INTEGER NULL,
     "Bild" TEXT NULL,
@@ -89,9 +89,6 @@ CREATE TABLE "Produkt" (
     -- Jedes Produkt muss von einem bestimmten Typ sein. Evtl zu streng?
     "Produkttyp" VARCHAR(20) NOT NULL,
     CONSTRAINT "produkt_nummer_not_blank_check" CHECK (length(trim("Produktnummer")) > 0),
-    CONSTRAINT "produkt_rating_check" CHECK (
-        "Rating" BETWEEN 0 AND 5
-    ),
     CONSTRAINT "produkt_verkaufsrang_check" CHECK (
         "Verkaufsrang" IS NULL
         OR "Verkaufsrang" > 0
@@ -332,39 +329,14 @@ CREATE TABLE "Ladefehler" (
     "Meldung" TEXT NOT NULL,
     "ErfasstAm" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
--- Functio/Trigger zum Aktualisieren des Produkt-Ratings (View geht nicht, weil explizit eine Spalte in der Beschreibung gegeben war und ich mir nicht sicher bin, ob ich das dann einfach als View implementieren sollte. Kann man ja später noch ändern)
-CREATE OR REPLACE FUNCTION "aktualisiere_produkt_rating"() RETURNS TRIGGER AS $$
-DECLARE betroffene_produktnummer VARCHAR(20);
-BEGIN betroffene_produktnummer := COALESCE(NEW."Produktnummer", OLD."Produktnummer");
-UPDATE "Produkt"
-SET "Rating" = COALESCE(
-        (
-            SELECT round(avg("Punkte")::numeric, 2)
-            FROM "Kundenrezension"
-            WHERE "Produktnummer" = betroffene_produktnummer
-        ),
-        0.00
-    )
-WHERE "Produktnummer" = betroffene_produktnummer;
-RETURN COALESCE(NEW, OLD);
-END;
-$$ LANGUAGE plpgsql;
-CREATE TRIGGER "kundenrezension_rating_insert_update"
-AFTER
-INSERT
-    OR
-UPDATE ON "Kundenrezension" FOR EACH ROW EXECUTE FUNCTION "aktualisiere_produkt_rating"();
-CREATE TRIGGER "kundenrezension_rating_delete"
-AFTER DELETE ON "Kundenrezension" FOR EACH ROW EXECUTE FUNCTION "aktualisiere_produkt_rating"();
 -- Views
+-- Ich hab's mal als View implementiert, weil das als Function + Trigger nicht schön bzw performant wäre
 CREATE VIEW "ProduktDurchschnittsRating" AS
 SELECT p."Produktnummer",
-    p."Rating" AS "GespeichertesRating",
-    COALESCE(round(avg(k."Punkte")::numeric, 2), 0.00) AS "BerechnetesRating"
+    COALESCE(round(avg(k."Punkte")::numeric, 2), 0.00) AS "Rating"
 FROM "Produkt" p
     LEFT JOIN "Kundenrezension" k ON k."Produktnummer" = p."Produktnummer"
-GROUP BY p."Produktnummer",
-    p."Rating";
+GROUP BY p."Produktnummer";
 CREATE VIEW "ÄhnlicheProdukteBidirektional" AS
 SELECT "Produktnummer1" AS "Produktnummer",
     "Produktnummer2" AS "ÄhnlicheProduktnummer"
@@ -375,7 +347,6 @@ SELECT "Produktnummer2" AS "Produktnummer",
 FROM "Produktähnlichkeit";
 -- Indizes um Anfragen zu beschleunigen
 CREATE INDEX "idx_produkt_typ" ON "Produkt" ("Produkttyp");
-CREATE INDEX "idx_produkt_rating" ON "Produkt" ("Rating");
 CREATE INDEX "idx_produkt_verkaufsrang" ON "Produkt" ("Verkaufsrang");
 CREATE INDEX "idx_kategorie_oberkategorie" ON "Kategorie" ("OberkategorieID");
 CREATE INDEX "idx_produktkategorien_kategorie" ON "Produktkategorien" ("KategorieID");
