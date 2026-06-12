@@ -2,13 +2,13 @@
 *.swp
 .idea/
 .agents
+github.txt
 
 .env
 .env.*
 !.env.example
 
 postgres-data/
-data/
 testate/
 build/
 target/
