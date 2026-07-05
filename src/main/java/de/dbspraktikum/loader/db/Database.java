@@ -93,10 +93,32 @@ public final class Database implements AutoCloseable {
         StringBuilder current = new StringBuilder();
         boolean inSingleQuote = false;
         boolean inDoubleQuote = false;
+        boolean inLineComment = false;
+        int blockCommentDepth = 0;
         String dollarTag = null;
 
         for (int i = 0; i < sql.length(); i++) {
             char c = sql.charAt(i);
+
+            if (inLineComment) {
+                current.append(c);
+                if (c == '\n' || c == '\r') {
+                    inLineComment = false;
+                }
+                continue;
+            }
+
+            if (blockCommentDepth > 0) {
+                current.append(c);
+                if (c == '/' && i + 1 < sql.length() && sql.charAt(i + 1) == '*') {
+                    current.append(sql.charAt(++i));
+                    blockCommentDepth++;
+                } else if (c == '*' && i + 1 < sql.length() && sql.charAt(i + 1) == '/') {
+                    current.append(sql.charAt(++i));
+                    blockCommentDepth--;
+                }
+                continue;
+            }
 
             if (dollarTag != null) {
                 current.append(c);
@@ -105,6 +127,20 @@ public final class Database implements AutoCloseable {
                     i += dollarTag.length() - 1;
                     dollarTag = null;
                 }
+                continue;
+            }
+
+            if (!inSingleQuote && !inDoubleQuote && c == '-'
+                && i + 1 < sql.length() && sql.charAt(i + 1) == '-') {
+                current.append(c).append(sql.charAt(++i));
+                inLineComment = true;
+                continue;
+            }
+
+            if (!inSingleQuote && !inDoubleQuote && c == '/'
+                && i + 1 < sql.length() && sql.charAt(i + 1) == '*') {
+                current.append(c).append(sql.charAt(++i));
+                blockCommentDepth = 1;
                 continue;
             }
 

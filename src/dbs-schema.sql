@@ -88,7 +88,12 @@ CREATE TABLE "Produkt" (
     "EAN" TEXT NULL,
     -- Jedes Produkt muss von einem bestimmten Typ sein. Evtl zu streng?
     "Produkttyp" VARCHAR(20) NOT NULL,
+    -- Durchschnitt aller Rezensionspunkte; wird per Trigger auf "Kundenrezension" aktuell gehalten (siehe unten)
+    "Durchschnittsbewertung" NUMERIC(3, 2) NOT NULL DEFAULT 0.00,
     CONSTRAINT "produkt_nummer_not_blank_check" CHECK (length(trim("Produktnummer")) > 0),
+    CONSTRAINT "produkt_durchschnittsbewertung_check" CHECK (
+        "Durchschnittsbewertung" BETWEEN 0 AND 5
+    ),
     CONSTRAINT "produkt_verkaufsrang_check" CHECK (
         "Verkaufsrang" IS NULL
         OR "Verkaufsrang" > 0
@@ -329,14 +334,37 @@ CREATE TABLE "Ladefehler" (
     "Meldung" TEXT NOT NULL,
     "ErfasstAm" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+-- jetzt als Trigger statt View
+-- Betroffen ist bei INSERT das neue, bei DELETE das alte Produkt und bei UPDATE beide, falls die Rezension einem anderen Produkt zugeordnet wurde
+CREATE FUNCTION "aktualisiere_produkt_rating"() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+UPDATE "Produkt" p
+SET "Durchschnittsbewertung" = COALESCE(
+        (
+            SELECT round(avg(k."Punkte")::numeric, 2)
+            FROM "Kundenrezension" k
+            WHERE k."Produktnummer" = p."Produktnummer"
+        ),
+        0.00
+    )
+WHERE p."Produktnummer" = ANY (
+        CASE
+            TG_OP
+            WHEN 'INSERT' THEN ARRAY [NEW."Produktnummer"]
+            WHEN 'DELETE' THEN ARRAY [OLD."Produktnummer"]
+            ELSE ARRAY [NEW."Produktnummer", OLD."Produktnummer"]
+        END
+    );
+RETURN NULL;
+END;
+$$;
+CREATE TRIGGER "trg_kundenrezension_rating"
+AFTER
+INSERT
+    OR DELETE
+    OR
+UPDATE OF "Punkte",
+    "Produktnummer" ON "Kundenrezension" FOR EACH ROW EXECUTE FUNCTION "aktualisiere_produkt_rating"();
 -- Views
--- Ich hab's mal als View implementiert, weil das als Function + Trigger nicht schön bzw performant wäre
-CREATE VIEW "ProduktDurchschnittsRating" AS
-SELECT p."Produktnummer",
-    COALESCE(round(avg(k."Punkte")::numeric, 2), 0.00) AS "Rating"
-FROM "Produkt" p
-    LEFT JOIN "Kundenrezension" k ON k."Produktnummer" = p."Produktnummer"
-GROUP BY p."Produktnummer";
 CREATE VIEW "ÄhnlicheProdukteBidirektional" AS
 SELECT "Produktnummer1" AS "Produktnummer",
     "Produktnummer2" AS "ÄhnlicheProduktnummer"

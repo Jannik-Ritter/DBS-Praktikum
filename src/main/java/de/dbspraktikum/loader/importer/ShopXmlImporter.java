@@ -61,7 +61,7 @@ public final class ShopXmlImporter extends Importer {
                 context.errors().record("Produkt", "Produkttyp", type, source + ":" + asin, Errors.productTypeMismatch(existingType));
                 return;
             }
-            loadOffer(source, branchId, asin, item);
+            loadOffers(source, branchId, asin, item);
             loadSubtypeReferences(type, asin, item, source, false);
             loadSupplementalData(asin, item);
             collectSimilarRefs(source, asin, item);
@@ -119,7 +119,7 @@ public final class ShopXmlImporter extends Importer {
         }
 
         loadSubtypeReferences(type, asin, item, source, true);
-        loadOffer(source, branchId, asin, item);
+        loadOffers(source, branchId, asin, item);
         loadSupplementalData(asin, item);
         // Ähnliche Produkte werden gesammelt und erst nach allen Shop-Dateien gespeichert
         collectSimilarRefs(source, asin, item);
@@ -269,8 +269,19 @@ public final class ShopXmlImporter extends Importer {
         }
     }
 
-    private void loadOffer(String source, int branchId, String asin, Element item) throws SQLException {
-        Element price = XmlUtil.firstChild(item, "price");
+    private void loadOffers(String source, int branchId, String asin, Element item) throws SQLException {
+        List<Element> prices = XmlUtil.children(item, "price");
+        if (prices.isEmpty()) {
+            loadOffer(source, branchId, asin, item, null);
+            return;
+        }
+
+        for (Element price : prices) {
+            loadOffer(source, branchId, asin, item, price);
+        }
+    }
+
+    private void loadOffer(String source, int branchId, String asin, Element item, Element price) throws SQLException {
         String state = TextUtil.firstNonBlank(XmlUtil.attr(price, "state"), XmlUtil.attr(item, "state"), "unknown");
 
         String currency = TextUtil.clean(XmlUtil.attr(price, "currency"));
